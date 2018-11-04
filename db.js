@@ -29,8 +29,9 @@ async function all(query) {
 
 async function updateMovie(movie) {
     assert.ok(movie.hash);
-    const sql = `update movie set ${Object.entries(movie).map(([k, v]) =>
-        ` ${k} = "${v}"`
+    const sql = `update movie set ${Object.entries(movie).map(([k, v]) => {
+            return ` ${k} = ${v === undefined && v === null ? null : '"' + v + '"' }`
+        }
     ).join()} where hash = "${movie.hash}"`;
     return run(sql);
 }
