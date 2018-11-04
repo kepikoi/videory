@@ -1,5 +1,5 @@
 # Videory
-> transcode all videos in a directory
+> transcode all videos in a directory and provide a neat interface to browse them
 
 
 #Errors

@@ -6,7 +6,7 @@ const
     , db = require('./db')
     , md5file = require('md5-file/promise')
     , {getFilesizeInMBytes, getCreateDate} = require('./helpers')
-    , debug = require("debug")('videory:server')
+    , debug = require("debug")('videory:hound')
     , chokidar = require('chokidar')
 ;
 
@@ -51,7 +51,7 @@ module.exports.findAndUpdate = async (searchDir, searchExt) => {
  * @param {String} searchExt - file extension to query
  * @return {Promise<void>}
  */
-module.exports.watchDir = (searchDir, searchExt) => {
+module.exports.watchDir = (searchDir, searchExt) => new Promise((resolve, reject) => {
     assert.ok(searchDir && searchExt, 'missing mandatory argument');
     const watcher = chokidar.watch(searchDir, {
         ignored: /(^|[\/\\])\../,
@@ -62,4 +62,5 @@ module.exports.watchDir = (searchDir, searchExt) => {
         .on('add', path => debug(`File ${path} has been added`))
         .on('change', path => debug(`File ${path} has been changed`))
         .on('unlink', path => debug(`File ${path} has been removed`))
-};
+        .on('error', e => reject(e))
+});

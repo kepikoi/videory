@@ -2,7 +2,7 @@ const
     fs = require("fs")
     , dayjs = require("dayjs")
     , assert = require("assert")
-    , debug = require("debug")("videory:helper")
+    , debug = require("debug")("videory:helpers")
 ;
 
 /**
@@ -29,6 +29,6 @@ module.exports.getCreateDate = function (filename) {
 
 
 module.exports.logAndExit = exitCode => err => {
-    debug(err);
+    console.trace(err);
     process.exit(exitCode);
 };

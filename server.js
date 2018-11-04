@@ -5,12 +5,12 @@ const
     , {findAndUpdate, watchDir} = require('./hound')
     , path = require('path')
     , searchDir = path.join('C:', 'Users', 'autod', 'OneDrive', 'Dokumente', 'videory test videos')
-    , transcodeDir = path.join('./', 'transcode')
     , searchExt = 'MP4'
     , port = process.env.PORT || 3000
     , api = require('./routes/api')
     , debug = require("debug")('videory:server')
     , {logAndExit} = require("./helpers")
+    , transcoder = require("./transcode")
 ;
 
 
@@ -32,4 +32,7 @@ const
 
     //start server
     app.listen(port, () => debug(` server listening on port ${port}`));
+
+    //start transcoder
+    transcoder.schedule()
 })();
