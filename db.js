@@ -103,6 +103,13 @@ module.exports.insertMovie = async (hash, path, date) =>
             throw e;
         });
 
+/**
+ * deletes a movie from db
+ * @param {Object} movie
+ * @return {Promise<any>}
+ */
+module.exports.deleteMovie = async ({hash, path}) =>
+    run(`delete from movie where "hash"=${hash} and "path" = ${path};`);
 
 /**
  * returns all movies from db

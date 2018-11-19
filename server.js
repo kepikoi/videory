@@ -4,7 +4,7 @@ const
     , db = require('./db')
     , {findAndUpdate, watchDir} = require('./hound')
     , path = require('path')
-    , searchDir = path.join('C:', 'Users', 'autod', 'OneDrive', 'Dokumente', 'videory test videos')
+    , searchDir = path.join('M:', '2018-09-15 Singoldpfad Bobingen')
     , searchExt = 'MP4'
     , port = process.env.PORT || 3000
     , api = require('./routes/api')

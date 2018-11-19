@@ -19,6 +19,7 @@ async function indexMovie(filePath) {
     assert.ok(filePath, 'missing mandatory argument');
     const timer = 'timer ' + filePath;
     console.time(timer);
+    debug("calculating md5 hash for " + filePath)
     const fileHash = await md5file(filePath);
     debug(filePath, getFilesizeInMBytes(filePath), fileHash);
     console.timeEnd(timer);
@@ -39,9 +40,12 @@ module.exports.findAndUpdate = async (searchDir, searchExt) => {
         .paths(searchDir)
         .ext(searchExt)
         .find()
-        .then(files => {
+        .then(async files => {
             debug(`found ${files.length} ${searchExt} files`);
-            return Promise.all(files.map(indexMovie));
+            for (let i = 0; i < files.length; i++) {
+                const movie = files[i];
+                await indexMovie(movie);
+            }
         });
 };
 

@@ -2,73 +2,70 @@ const
     db = require("./db")
     , ffmpeg = require('easy-ffmpeg')
     , path = require("path")
+    , fs = require("fs")
     , debug = require("debug")('videory:transcode')
     , transcodeDir = path.join(__dirname, '/transcoded')
 ;
 
-async function transcode(videos) {
-    return await Promise.all(
-        videos.map(async v => {
-            const videoPath = path.resolve(v.path);
-            const transcodePath = `${path.join(transcodeDir, v.hash)}`;
-            await v.setIsTrancoding();
-            debug("start transcoding " + v.hash + " to", transcodePath);
+async function transcodeAll(videos) {
+    for (let i = 0; i < videos.length; i++) {
+        const movie = videos[i];
+        await transcode(movie);
+    }
+}
 
-            const command = ffmpeg(videoPath)
-                .audioCodec('ac3_fixed')
-                .audioBitrate(128)
-                .videoCodec('libx264')
-                .format("mov")
-                .size('1920x?')
-                .on('error', async err => {
-                    console.error(err);
-                    await Promise.all([
-                        v.setIsTrancoding(false),
-                        v.setTranscodePath(null)
-                    ])
-                })
-                .on('end', async () => {
-                    await Promise.all([
-                        await v.setIsTrancoding(false),
-                        await v.setTranscodePath(transcodePath)
-                    ]);
-                    debug('Video file transcoded: ' + videoPath);
-                })
-                .save(path.join(__dirname, 'transcoded', v.hash + ".avi"))
-            ;
-            //
-            //
-            // return new ffmpeg(videoPath)
-            //     .then(p => p
-            //         .setVideoSize('1920x?', true, true)
-            //         //  .setVideoCodec('libx264')
-            //         //.setAudioCodec("ac3_fixed")
-            //         // .setAudioBitRate(128)
-            //         //  .setVideoFormat("mov")
-            //         .save(transcodePath, async (error, file) => {
-            //             if (error) {
-            //                 return console.error(error)
-            //             }
-            //             await v.setIsTrancoding(false);
-            //             await v.setTranscodePath(transcodePath);
-            //             debug('Video file transcoded: ' + file);
-            //             return file;
-            //         })
-            //     )
-            //     .catch(async e => {
-            //         console.error(e);
-            //         await v.setIsTrancoding(false);
-            //         await v.setTranscodePath(null);
-            //     })
-            //     ;
-        })
-    );
+
+/**
+ * transcode single movie
+ * @param {Object} v - movie
+ * @return {Promise<any>}
+ */
+async function transcode(v) {
+    return new Promise(async (resolve, reject) => {
+
+        const videoPath = path.resolve(v.path);
+
+        if (!fs.existsSync(videoPath)) {
+            console.alert(videoPath + " was about to be transcoded but cannot be located on filesystem");
+            return db.deleteMovie(v)
+        }
+
+        const transcodePath = `${path.join(transcodeDir, v.hash)}`;
+        await v.setIsTrancoding();
+
+        debug("start transcoding " + v.hash + " to", transcodePath);
+
+        const command = ffmpeg(fs.createReadStream(videoPath))
+            .audioCodec('ac3_fixed')
+            .audioBitrate(128)
+            .videoCodec('libx264')
+            .format("mov")
+            .size('1920x?')
+            .on('error', async err => {
+                console.error(err);
+                await Promise.all([
+                    v.setIsTrancoding(false),
+                    v.setTranscodePath(null)
+                ]);
+                return reject(e);
+            })
+            .on('end', async () => {
+                await Promise.all([
+                    await v.setIsTrancoding(false),
+                    await v.setTranscodePath(transcodePath)
+                ]);
+                debug('Video file ' + videoPath + ' was transcoded to ' + transcodePath);
+                return resolve(v);
+            })
+            .save(path.join(__dirname, 'transcoded', v.hash + ".avi"))
+        ;
+    })
 }
 
 module.exports.schedule = () => {
     setInterval(async () => {
             const videos = await db.findNotTranscoded();
-            await transcode(videos);
+            await transcodeAll(videos);
         }, 2000
     );
 };
