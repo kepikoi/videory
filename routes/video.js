@@ -4,7 +4,7 @@ const
 ;
 
 router.get('/',async (req,res,next)=>{
-    const videos =  await db.find();
+    const videos =  await db.findMovies();
     res.status(200).json(videos);
 });
 

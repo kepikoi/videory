@@ -53,14 +53,17 @@ module.exports.findAndUpdate = async (searchDir, searchExt) => {
  */
 module.exports.watchDir = (searchDir, searchExt) => new Promise((resolve, reject) => {
     assert.ok(searchDir && searchExt, 'missing mandatory argument');
-    const watcher = chokidar.watch(searchDir, {
-        ignored: /(^|[\/\\])\../,
-        persistent: true
-    });
+    const
+        watcher = chokidar.watch(searchDir, {
+            ignored: /(^|[\/\\])\../,
+            persistent: true
+        })
+        , debugevent = verb => path => debug(`File ${path} has been ${verb}ed`)
+    ;
 
     watcher
-        .on('add', path => debug(`File ${path} has been added`))
-        .on('change', path => debug(`File ${path} has been changed`))
-        .on('unlink', path => debug(`File ${path} has been removed`))
+        .on('add', debugevent("add"))
+        .on('change', debugevent("change"))
+        .on('unlink', debugevent("remove"))
         .on('error', e => reject(e))
 });

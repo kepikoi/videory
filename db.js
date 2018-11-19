@@ -2,9 +2,14 @@ const
     sqlite3 = require('sqlite3').verbose()
     , debug = require("debug")("videory:db")
     , assert = require("assert")
-    , db = new sqlite3.Database('db.sqlite')
+    , db = new sqlite3.cached.Database('db.sqlite')
 ;
 
+/**
+ * execute db query
+ * @param {String} query
+ * @return {Promise<any>}
+ */
 async function run(query) {
     return new Promise((resolve, reject) => {
         db.run(query, (err) => {
@@ -16,6 +21,11 @@ async function run(query) {
     })
 }
 
+/**
+ * return array of matches for query
+ * @param query
+ * @return {Promise<any>}
+ */
 async function all(query) {
     return new Promise((resolve, reject) => {
         db.all(query, (err, rows) => {
@@ -27,17 +37,25 @@ async function all(query) {
     })
 }
 
+/**
+ * update move entity
+ * @param {Object} movie
+ * @return {Promise<any>}
+ */
+
 async function updateMovie(movie) {
     assert.ok(movie.hash);
     const sql = `update movie set ${Object.entries(movie).map(([k, v]) => {
-            return ` ${k} = ${v === undefined && v === null ? null : '"' + v + '"' }`
+            return ` ${k} = ${v === undefined || v === null ? null : '"' + v + '"' }`
         }
     ).join()} where hash = "${movie.hash}"`;
     return run(sql);
 }
 
+module.exports.updateMovie = updateMovie;
+
 /**
- * initial
+ * init database
  * @return {Promise<*>}
  */
 module.exports.init = async () => {
@@ -53,7 +71,7 @@ module.exports.init = async () => {
       )
     `);
 
-    //todo: remove transcoding bit on every video after startup
+    //todo: remove transcoding Bit on every video after startup
 
     //init settings table
     // await run(`
@@ -68,6 +86,13 @@ module.exports.init = async () => {
     //           values ("outputpath", "c:/videory-output")`);
 };
 
+/**
+ * insert move to database
+ * @param {String} hash - movie file hash
+ * @param {String} path - movie fs path
+ * @param {String} date - insert date
+ * @return {Promise<any | never>}
+ */
 module.exports.insertMovie = async (hash, path, date) =>
     run(`insert into movie (hash, path, date) values("${hash}", "${path}", "${date}");`)
         .catch(e => {
@@ -78,12 +103,21 @@ module.exports.insertMovie = async (hash, path, date) =>
             throw e;
         });
 
-module.exports.find = async () => {
+
+/**
+ * returns all movies from db
+ * @return {Promise<any>}
+ */
+module.exports.findMovies = async () => {
     return all('select * from movie');
 };
 
+/**
+ * returns movies that are yet to be encoded
+ * @return {Promise<*>}
+ */
 module.exports.findNotTranscoded = async () => {
-    const notTranscoded = await all('select * from movie where transcodedPath is null and isTranscoding is false');
+    const notTranscoded = await all('select * from movie where "transcodedPath" ISNULL AND "isTranscoding" is 0');
     if (!notTranscoded.length) {
         return [];
     }
@@ -101,4 +135,3 @@ module.exports.findNotTranscoded = async () => {
     }))
 };
 
-module.exports.updateMovie = updateMovie;
