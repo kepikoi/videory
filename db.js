@@ -142,3 +142,12 @@ module.exports.findNotTranscoded = async () => {
     }))
 };
 
+/**
+ * deletes videos from db that are marked as isTranscoding
+ * @return {Promise<void>}
+ */
+module.exports.removeStalledTranscodings = async () => {
+    const amnt = await all('select * from movie where "transcodedPath" ISNULL AND "isTranscoding" is 1')
+    await run('delete from movie where "transcodedPath" ISNULL AND "isTranscoding" is 1');
+    debug("removed stalled transcodings");
+};
