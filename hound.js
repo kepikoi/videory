@@ -29,15 +29,20 @@ async function indexMovie(filePath) {
 
 /**
  * find all files with matching file extension in given path
- * @param {String} searchDir - fs file path
+ * @param {[String]} watchDirs - fs file paths
  * @param {String} searchExt - file extension to query
  * @return {Promise}
  */
-module.exports.findAndUpdate = async (searchDir, searchExt) => {
-    assert.ok(searchDir && searchExt, 'missing mandatory argument');
-    debug('Updating index', searchDir);
+module.exports.findAndUpdate = async (watchDirs, searchExt) => {
+    assert.equal(watchDirs.constructor, Array, "first argument must be an array of Strings with directories")
+    assert.ok(searchExt, 'missing mandatory second argument');
+    debug('Updating index', watchDirs);
+    if (!watchDirs.length) {
+        return Promise.resolve();
+    }
+
     return FileHound.create()
-        .paths(searchDir)
+        .paths(watchDirs)
         .ext(searchExt)
         .find()
         .then(async files => {
@@ -51,14 +56,19 @@ module.exports.findAndUpdate = async (searchDir, searchExt) => {
 
 /**
  * watch filesystem to changes
- * @param {String} searchDir - fs file path
+ * @param {[String]} watchDirs - fs file paths
  * @param {String} searchExt - file extension to query
  * @return {Promise<void>}
  */
-module.exports.watchDir = (searchDir, searchExt) => new Promise((resolve, reject) => {
-    assert.ok(searchDir && searchExt, 'missing mandatory argument');
+module.exports.watchDir = (watchDirs, searchExt) => new Promise((resolve, reject) => {
+    assert.equal(watchDirs.constructor, Array, "first argument must be an array of Strings with directories")
+    assert.ok(searchExt, 'missing mandatory second argument');
+    if (!watchDirs.length) {
+        return Promise.resolve();
+    }
+
     const
-        watcher = chokidar.watch(searchDir, {
+        watcher = chokidar.watch(watchDirs, {
             ignored: /(^|[\/\\])\../,
             persistent: true
         })

@@ -4,29 +4,34 @@ const
     , path = require("path")
     , fs = require("fs")
     , debug = require("debug")('videory:transcode')
-    , transcodeDir = path.join(__dirname, '/transcoded')
 ;
 
-async function transcodeAll(videos) {
+/**
+ * trnascode given videos to given transcode directory
+ * @param {[Object]} videos - array of video objects to transcode
+ * @param {String} transcodeDir - directory to store the transcoded videos
+ * @return {Promise<void>}
+ */
+async function transcodeAll(videos, transcodeDir) {
     for (let i = 0; i < videos.length; i++) {
         const movie = videos[i];
-        await transcode(movie);
+        await transcode(movie, transcodeDir);
     }
 }
 
-
 /**
- * transcode single movie
- * @param {Object} v - movie
+ * transcode single video
+ * @param {Object} v - video
+ * @param {String} transcodeDir - directory to store the transcoded videos
  * @return {Promise<any>}
  */
-async function transcode(v) {
+async function transcode(v, transcodeDir) {
     return new Promise(async (resolve, reject) => {
 
         const videoPath = path.resolve(v.path);
 
         if (!fs.existsSync(videoPath)) {
-            console.alert(videoPath + " was about to be transcoded but cannot be located on filesystem");
+            console.warn(videoPath + " was about to be transcoded but cannot be located on filesystem");
             return db.deleteMovie(v)
         }
 
@@ -62,10 +67,14 @@ async function transcode(v) {
     })
 }
 
-module.exports.schedule = () => {
+/**
+ * query for not transcoded videos and start transcoding
+ * @param {String} transcodeDir - directory to save transcoded videos
+ */
+module.exports.schedule = (transcodeDir) => {
     setInterval(async () => {
             const videos = await db.findNotTranscoded();
-            await transcodeAll(videos);
-        }, 2000
+            await transcodeAll(videos, transcodeDir);
+        }, 120000
     );
 };
