@@ -6,7 +6,7 @@
 # * 'mptr' and 'fptr' create a POST request to submit a form with a text or file field (multipart/form-data);
 
 # query all videos
-GET http://localhost:3000/api/video
+GET http://localhost:3000/express/video
 Accept: application/json
 
 ###

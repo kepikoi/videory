@@ -1,38 +1,37 @@
 const
-    express = require('express')
-    , app = express()
-    , db = require('./db')
+    db = require('./db')
     , {findAndUpdate, watchDir} = require('./hound')
     , path = require('path')
-    , searchDir = path.join('M:', '2018-09-15 Singoldpfad Bobingen')
     , searchExt = 'MP4'
-    , port = process.env.PORT || 3000
-    , api = require('./routes/api')
+    , express = require('./express')
     , debug = require("debug")('videory:server')
     , {logAndExit} = require("./helpers")
     , transcoder = require("./transcode")
-;
+    , {getWatchDirs, getOutputDir} = require("./db")
 
+;
 
 (async function () {
     //init sqlite
     await db.init()
         .catch(logAndExit(1));
 
+    const
+        watchDirs = (await getWatchDirs()).map(w => w.path)
+        , outputDir = (await getOutputDir()).outputpath
+    ;
+
+    //enable api
+    express.enable();
+
     //initially search fs for videos
-    await findAndUpdate(searchDir, searchExt)
+    await findAndUpdate(watchDirs, searchExt)
         .catch(logAndExit(2));
 
     // watch fs for changes
-    watchDir(searchDir, searchExt)
+    watchDir(watchDirs, searchExt)
         .catch(logAndExit(3));
 
-    //enable api
-    app.use('/api', api);
-
-    //start server
-    app.listen(port, () => debug(` server listening on port ${port}`));
-
     //start transcoder
-    transcoder.schedule()
+    transcoder.schedule(outputDir)
 })();

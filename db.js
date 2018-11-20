@@ -3,38 +3,50 @@ const
     , debug = require("debug")("videory:db")
     , assert = require("assert")
     , db = new sqlite3.cached.Database('db.sqlite')
+    , fs = require("fs")
 ;
 
+
 /**
- * execute db query
+ * promisify an sql command
+ * @param {String} verb
+ * @return {function(*=): Promise<any>}
+ */
+const sqliteExecute = verb => query => new Promise((resolve, reject) => {
+    db[verb](query, (err, rows) => {
+        if (err) {
+            return reject(err)
+        }
+        return resolve(rows);
+    });
+});
+
+/**
+ * execute db query without a return value
  * @param {String} query
  * @return {Promise<any>}
  */
 async function run(query) {
-    return new Promise((resolve, reject) => {
-        db.run(query, (err) => {
-            if (err) {
-                return reject(err)
-            }
-            return resolve();
-        });
-    })
+    return sqliteExecute("run")(query);
 }
 
 /**
- * return array of matches for query
- * @param query
+ * return array of all matches for given query from db
+ * @param {String} query
  * @return {Promise<any>}
  */
 async function all(query) {
-    return new Promise((resolve, reject) => {
-        db.all(query, (err, rows) => {
-            if (err) {
-                return reject(err)
-            }
-            return resolve(rows);
-        });
-    })
+    return sqliteExecute("all")(query);
+
+}
+
+/**
+ * return the first match for given query from db
+ * @param {String} query
+ * @return {Promise<any>}
+ */
+async function get(query) {
+    return sqliteExecute("get")(query);
 }
 
 /**
@@ -60,7 +72,7 @@ module.exports.updateMovie = updateMovie;
  */
 module.exports.init = async () => {
     // init movies table
-    return run(`
+    await run(`
       create table if not exists movie (
         hash           TEXT    not null,
         path           TEXT    not null,
@@ -73,17 +85,33 @@ module.exports.init = async () => {
 
     //todo: remove transcoding Bit on every video after startup
 
-    //init settings table
-    // await run(`
-    //   create table if not exists settings (
-    //     name  TEXT not null unique,
-    //     value TEXT not null unique
-    //   )
-    // `);
+    //init settings tables
+    await run(`
+      create table if not exists watchdir (
+        path    TEXT    not null UNIQUE,
+        created TIMESTAMP         DEFAULT CURRENT_TIMESTAMP,
+        enabled BOOLEAN not null  default true
+      )
+    `);
 
-    //init default settings //todo: enable setting for the ui
-    //  await run(`insert into settings
-    //           values ("outputpath", "c:/videory-output")`);
+    await run(`
+      INSERT
+      OR IGNORE INTO watchdir (path)
+      values ("C:\\Users\\autod\\OneDrive\\Dokumente\\videory test videos")`);
+
+    //todo: ui settings
+    await run(`
+      create table if not exists settings (
+        outputpath TEXT not null UNIQUE
+      )
+    `);
+
+    await run(`
+      INSERT
+      OR IGNORE INTO settings (outputpath)
+      values ("c:/videory-output");
+    `)
+
 };
 
 /**
@@ -94,7 +122,7 @@ module.exports.init = async () => {
  * @return {Promise<any | never>}
  */
 module.exports.insertMovie = async (hash, path, date) =>
-    run(`insert into movie (hash, path, date) values("${hash}", "${path}", "${date}");`)
+    run(`insert OR IGNORE into movie (hash, path, date) values("${hash}", "${path}", "${date}");`)
         .catch(e => {
             if (e.code === "SQLITE_CONSTRAINT") {
                 return console.warn('db entry exists', hash, path);
@@ -108,15 +136,16 @@ module.exports.insertMovie = async (hash, path, date) =>
  * @param {Object} movie
  * @return {Promise<any>}
  */
-module.exports.deleteMovie = async ({hash, path}) =>
-    run(`delete from movie where "hash"=${hash} and "path" = ${path};`);
+const deleteMovie = async ({hash, path}) =>
+    run(`delete from movie where "hash" = "${hash}" and "path" = "${path}";`);
 
+module.exports.deleteMovie = deleteMovie
 /**
- * returns all movies from db
+ * returns all transcoded movies from db
  * @return {Promise<any>}
  */
-module.exports.findMovies = async () => {
-    return all('select * from movie');
+module.exports.findTranscodedMovies = async () => {
+    return all('select * from movie where "transcodedPath"is not null');
 };
 
 /**
@@ -126,19 +155,45 @@ module.exports.findMovies = async () => {
 module.exports.findNotTranscoded = async () => {
     const notTranscoded = await all('select * from movie where "transcodedPath" ISNULL AND "isTranscoding" is 0');
     if (!notTranscoded.length) {
+        debug("Found no videos to transcode. Will retry shortly");
         return [];
     }
-    debug("found some videos to transcode:", notTranscoded.map(n => n.hash).join());
-    return notTranscoded.map(n => ({
-        ...n,
-        async setTranscodePath(path) {
-            n.transcodedPath = path;
-            return updateMovie(n);
-        },
-        async setIsTrancoding(isTranscoding = true) {
-            n.isTranscoding = isTranscoding;
-            return updateMovie(n)
+    debug("Found some videos to transcode:", notTranscoded.map(n => n.hash).join());
+
+    notTranscoded.forEach(async (n, i, a) => {
+        if (!fs.existsSync(n.path)) {
+            debug("db entry for video " + n.path + " not located on filesystem. Video entry will be deleted");
+            await deleteMovie(n);
+            a.splice(i, 1);
         }
-    }))
+    });
+
+    return notTranscoded
+        .map(n => ({
+            ...n,
+            async setTranscodePath(path) {
+                n.transcodedPath = path;
+                return updateMovie(n);
+            },
+            async setIsTrancoding(isTranscoding = true) {
+                n.isTranscoding = isTranscoding;
+                return updateMovie(n)
+            }
+        }))
+
+
 };
 
+/**
+ *  returns an array of watchdirs with videos
+ * @return {Promise<[String]>}
+ */
+module.exports.getWatchDirs = async () => all("select * from watchdir").catch(e => {
+    debugger
+})
+
+/**
+ * return the video transcoding output directory
+ * @return {Promise<String>}
+ */
+module.exports.getOutputDir = async () => get("select outputpath from settings")
