@@ -17,12 +17,9 @@ const
  */
 async function indexMovie(filePath) {
     assert.ok(filePath, 'missing mandatory argument');
-    const timer = 'timer ' + filePath;
-    console.time(timer);
-    debug("calculating md5 hash for " + filePath)
+    debug("calculating md5 hash for " + filePath);
     const fileHash = await md5file(filePath);
     debug(filePath, getFilesizeInMBytes(filePath), fileHash);
-    console.timeEnd(timer);
     const createDate = getCreateDate(filePath).toISOString();
     return db.insertMovie(fileHash, filePath, createDate)
 }
@@ -72,7 +69,7 @@ module.exports.watchDir = (watchDirs, searchExt) => new Promise((resolve, reject
             ignored: /(^|[\/\\])\../,
             persistent: true
         })
-        , debugevent = verb => path => debug(`File ${path} has been ${verb}ed`)
+        , debugevent = verb => path => debug(`File ${path} has been ${verb}ed to the filesystem`)
     ;
 
     watcher

@@ -94,23 +94,12 @@ module.exports.init = async () => {
       )
     `);
 
-    await run(`
-      INSERT
-      OR IGNORE INTO watchdir (path)
-      values ("C:\\Users\\autod\\OneDrive\\Dokumente\\videory test videos")`);
-
     //todo: ui settings
     await run(`
       create table if not exists settings (
         outputpath TEXT not null UNIQUE
       )
     `);
-
-    await run(`
-      INSERT
-      OR IGNORE INTO settings (outputpath)
-      values ("c:/videory-output");
-    `)
 
 };
 
@@ -187,9 +176,7 @@ module.exports.findNotTranscoded = async () => {
  *  returns an array of watchdirs with videos
  * @return {Promise<[String]>}
  */
-module.exports.getWatchDirs = async () => all("select * from watchdir").catch(e => {
-    debugger
-})
+module.exports.getWatchDirs = async () => all("select * from watchdir")
 
 /**
  * deletes videos from db that are marked as isTranscoding

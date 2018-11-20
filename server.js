@@ -7,7 +7,7 @@ const
     , debug = require("debug")('videory:server')
     , {logAndExit} = require("./helpers")
     , transcoder = require("./transcode")
-    , {getWatchDirs, getOutputDir} = require("./db")
+    , {getWatchDirs, getOutputDir, removeStalledTranscodings} = require("./db")
 
 ;
 
@@ -15,6 +15,9 @@ const
     //init sqlite
     await db.init()
         .catch(logAndExit(1));
+
+    //remove videos that started to transcoded and did not finish for some reason
+    await removeStalledTranscodings();
 
     const
         watchDirs = (await getWatchDirs()).map(w => w.path)

@@ -72,9 +72,17 @@ async function transcode(v, transcodeDir) {
  * @param {String} transcodeDir - directory to save transcoded videos
  */
 module.exports.schedule = (transcodeDir) => {
-    setInterval(async () => {
-            const videos = await db.findNotTranscoded();
+
+    const s = 3000;
+
+    async function schedule() {
+        const videos = await db.findNotTranscoded();
+        setTimeout(async () => {
             await transcodeAll(videos, transcodeDir);
-        }, 120000
-    );
+            debug("restarting scheduler in "+s+"ms");
+            schedule();
+        }, s);
+    }
+
+    schedule();
 };
