@@ -4,11 +4,51 @@ const
     , FileHound = require('filehound')
     , assert = require("assert")
     , db = require('./db')
-    , md5file = require('md5-file/promise')
-    , {getFilesizeInMBytes, getCreateDate} = require('./helpers')
+    , md5 = require('md5')
+    , ffmpeg = require('easy-ffmpeg')
+    , {getFilesizeInMBytes} = require('./helpers')
     , debug = require("debug")('videory:hound')
     , chokidar = require('chokidar')
+    , dayjs = require("dayjs")
 ;
+
+/**
+ * reads and returns ffprobe metadata for given videofile path
+ * @param {String} path - fs filepath to the video
+ * @return {Promise<Object>}
+ */
+async function probe(path) {
+    assert.ok(path);
+    return new Promise((resolve, reject) => {
+        ffmpeg.ffprobe(path, (err, metadata) => {
+            if (err) {
+                reject(err);
+            }
+            resolve(metadata);
+        });
+    })
+}
+
+/**
+ * returns md5 hash from concatinated video and filesystem metadata
+ * @param {Object} ffprobeMeta - video metadata output from ffprobe
+ * @param {Object} fsStats - filesystem metadata outpout from  fs.stat
+ * @return {String} video hash estimation
+ */
+function calculateHashFromMeta(ffprobeMeta, fsStats) {
+    const
+        {bit_rate, format_name, duration, size} = ffprobeMeta.format
+        , {encoder, major_brand, minor_version} = ffprobeMeta.format.tags
+        , videoStream = ffprobeMeta.streams.find((e, i) => i === 0)
+        , {codec_tag, pix_fmt, start_pts, start_time, width, height, nb_frames} = videoStream
+        , {timecode} = videoStream.tags
+        , {mtimeMs: lastModified, birthtimeMs: created} = fsStats
+        ,
+        str = [bit_rate, format_name, duration, size, encoder, major_brand, minor_version, codec_tag, pix_fmt, start_pts, start_time, width, height, nb_frames, timecode, lastModified, created].join("")
+    ;
+
+    return md5(str);
+}
 
 /**
  * add movie from fs to db
@@ -17,11 +57,20 @@ const
  */
 async function indexMovie(filePath) {
     assert.ok(filePath, 'missing mandatory argument');
-    debug("calculating md5 hash for " + filePath);
-    const fileHash = await md5file(filePath);
-    debug(filePath, getFilesizeInMBytes(filePath), fileHash);
-    const createDate = getCreateDate(filePath).toISOString();
-    return db.insertMovie(fileHash, filePath, createDate)
+    debug("calculating hash for video " + filePath);
+    // const fileHash = await md5file(filePath);
+    const
+        ffprobeMeta = await probe(filePath)
+        , fsStats = fs.statSync(filePath)
+        , fileHash = calculateHashFromMeta(ffprobeMeta, fsStats)
+        , lastModified = dayjs(fsStats["mtime"])
+        , name = path.basename(filePath, path.extname(filePath)) //without the extension
+        , size = getFilesizeInMBytes(filePath)
+        , length = ffprobeMeta.format.duration
+    ;
+
+    debug("video indexed", "name: " + name, "path: " + filePath, "size in MB: " + size, "hash: " + fileHash, "created: " + lastModified);
+    return db.insertMovie(fileHash, name, filePath, lastModified, length)
 }
 
 /**
@@ -31,16 +80,18 @@ async function indexMovie(filePath) {
  * @return {Promise}
  */
 module.exports.findAndUpdate = async (watchDirs, searchExt) => {
-    assert.equal(watchDirs.constructor, Array, "first argument must be an array of Strings with directories")
+    assert.equal(watchDirs.constructor, Array, "first argument must be an array of Strings with directories");
     assert.ok(searchExt, 'missing mandatory second argument');
     debug('Updating index', watchDirs);
     if (!watchDirs.length) {
         return Promise.resolve();
     }
 
-    return FileHound.create()
-        .paths(watchDirs)
+    const hound =  FileHound.create();
+    hound.paths(watchDirs)
         .ext(searchExt)
+        .discard("_.*") //todo: extract to settings
+        .depth(10) //todo: extract to settings
         .find()
         .then(async files => {
             debug(`found ${files.length} ${searchExt} files`);
@@ -49,6 +100,21 @@ module.exports.findAndUpdate = async (watchDirs, searchExt) => {
                 await indexMovie(movie);
             }
         });
+
+    hound.on('match', (file) => {
+        debug(`process ${file}`);
+    });
+
+    hound.on('error', e => {
+        debug(`error ${error}`);
+        throw error;
+    });
+
+    hound.on('end', file => {
+        debug(`search complete`,file);
+    });
+
+    return hound;
 };
 
 /**
@@ -72,9 +138,9 @@ module.exports.watchDir = (watchDirs, searchExt) => new Promise((resolve, reject
         , debugevent = verb => path => debug(`File ${path} has been ${verb}ed to the filesystem`)
     ;
 
-    watcher
-        .on('add', debugevent("add"))
-        .on('change', debugevent("change"))
-        .on('unlink', debugevent("remove"))
-        .on('error', e => reject(e))
+    // watcher
+    //     .on('add', debugevent("add"))
+    //     .on('change', debugevent("change"))
+    //     .on('unlink', debugevent("remove"))
+    //     .on('error', e => reject(e))
 });

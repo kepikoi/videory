@@ -16,25 +16,25 @@ const
     await db.init()
         .catch(logAndExit(1));
 
-    //remove videos that started to transcoded and did not finish for some reason
+    //remove videos that started to transcode and did not finish for some reason
     await removeStalledTranscodings();
+
+    //enable api
+    express.enable();
 
     const
         watchDirs = (await getWatchDirs()).map(w => w.path)
         , outputDir = (await getOutputDir()).outputpath
     ;
 
-    //enable api
-    express.enable();
-
     //initially search fs for videos
     await findAndUpdate(watchDirs, searchExt)
         .catch(logAndExit(2));
 
     // watch fs for changes
-    watchDir(watchDirs, searchExt)
-        .catch(logAndExit(3));
+    // watchDir(watchDirs, searchExt)
+    //     .catch(logAndExit(3));
 
     //start transcoder
-    transcoder.schedule(outputDir)
+    transcoder.schedule(outputDir).next()
 })();

@@ -15,7 +15,8 @@ const
 async function transcodeAll(videos, transcodeDir) {
     for (let i = 0; i < videos.length; i++) {
         const movie = videos[i];
-        await transcode(movie, transcodeDir);
+        await transcode(movie, transcodeDir)
+            .catch(debug);
     }
 }
 
@@ -31,14 +32,17 @@ async function transcode(v, transcodeDir) {
         const videoPath = path.resolve(v.path);
 
         if (!fs.existsSync(videoPath)) {
-            console.warn(videoPath + " was about to be transcoded but cannot be located on filesystem");
-            return db.deleteMovie(v)
+            console.warn(videoPath + " was about to be transcoded but cannot be located on filesystem. Video entry will be deleted from the DB.");
+            await db.deleteMovie(v);
+            return resolve();
         }
 
-        const transcodePath = `${path.join(transcodeDir, v.hash)}`;
+        const
+             outPath = path.join(transcodeDir,"/", v.hash + "_" + v.name + ".avi")
+        ;
         await v.setIsTrancoding();
 
-        debug("start transcoding " + v.hash + " to", transcodePath);
+        debug("start transcoding " + v.hash + " to", outPath);
 
         const command = ffmpeg(fs.createReadStream(videoPath))
             .audioCodec('ac3_fixed')
@@ -52,37 +56,42 @@ async function transcode(v, transcodeDir) {
                     v.setIsTrancoding(false),
                     v.setTranscodePath(null)
                 ]);
-                return reject(e);
+                return reject(err);
             })
             .on('end', async () => {
                 await Promise.all([
                     await v.setIsTrancoding(false),
-                    await v.setTranscodePath(transcodePath)
+                    await v.setTranscodePath(outPath)
                 ]);
-                debug('Video file ' + videoPath + ' was transcoded to ' + transcodePath);
+                debug('Video file ' + videoPath + ' was transcoded to ' + outPath);
                 return resolve(v);
             })
-            .save(path.join(__dirname, 'transcoded', v.hash + ".avi"))
+            .save(outPath)
         ;
     })
 }
 
 /**
- * query for not transcoded videos and start transcoding
+ * timesout for given amount of time and beginns transcoding unprocessed videos from db. Restarts itself when done transcoding.
+ * @param {String} transcodeDir - output directory to save the transcoded videos
+ * @param {Number} ms - timeout period before restarting the
+ */
+function timeoutAndTranscodeAll(transcodeDir, ms) {
+    setTimeout(async () => {
+        const videos = await db.findNotTranscoded();
+        await transcodeAll(videos, transcodeDir);
+        debug("restarting scheduler in " + ms + "ms");
+        timeoutAndTranscodeAll(transcodeDir, ms);
+    }, ms);
+}
+
+/**
+ * query untranscoded videos from db and start transcoding. Restart when done
  * @param {String} transcodeDir - directory to save transcoded videos
  */
-module.exports.schedule = (transcodeDir) => {
+function* schedule(transcodeDir) {
+    const timeoutMs = 10000;
+    yield timeoutAndTranscodeAll(transcodeDir, timeoutMs);
+}
 
-    const s = 3000;
-
-    async function schedule() {
-        const videos = await db.findNotTranscoded();
-        setTimeout(async () => {
-            await transcodeAll(videos, transcodeDir);
-            debug("restarting scheduler in "+s+"ms");
-            schedule();
-        }, s);
-    }
-
-    schedule();
-};
+module.exports.schedule = schedule;

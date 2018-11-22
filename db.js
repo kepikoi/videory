@@ -60,7 +60,7 @@ async function updateMovie(movie) {
     const sql = `update movie set ${Object.entries(movie).map(([k, v]) => {
             return ` ${k} = ${v === undefined || v === null ? null : '"' + v + '"' }`
         }
-    ).join()} where hash = "${movie.hash}"`;
+    ).join()} where hash = "${movie.hash}" and path = "${movie.path}"`;
     return run(sql);
 }
 
@@ -76,7 +76,10 @@ module.exports.init = async () => {
       create table if not exists movie (
         hash           TEXT    not null,
         path           TEXT    not null,
-        date           TEXT    not null,
+        indexed        TIMESTAMP        DEFAULT CURRENT_TIMESTAMP,
+        name           TEXT    not null,
+        created        DATE    not null,
+        length         INT     not null,
         transcodedPath TEXT,
         isTranscoding  BOOLEAN not null default false,
         UNIQUE (hash, path)
@@ -104,14 +107,16 @@ module.exports.init = async () => {
 };
 
 /**
- * insert move to database
- * @param {String} hash - movie file hash
- * @param {String} path - movie fs path
- * @param {String} date - insert date
+ * insert video to database
+ * @param {String} hash - video file hash
+ * @param {String} name - video name
+ * @param {String} path - video fs path
+ * @param {Date} created - video creation date
+ * @param {String} length - video length in seconds
  * @return {Promise<any | never>}
  */
-module.exports.insertMovie = async (hash, path, date) =>
-    run(`insert OR IGNORE into movie (hash, path, date) values("${hash}", "${path}", "${date}");`)
+module.exports.insertMovie = async (hash, name, path, created, length) =>
+    run(`insert OR IGNORE into movie (hash, name, path, created, length) values("${hash}", "${name}",  "${path}", "${created}", "${length}");`)
         .catch(e => {
             if (e.code === "SQLITE_CONSTRAINT") {
                 return console.warn('db entry exists', hash, path);
@@ -128,7 +133,8 @@ module.exports.insertMovie = async (hash, path, date) =>
 const deleteMovie = async ({hash, path}) =>
     run(`delete from movie where "hash" = "${hash}" and "path" = "${path}";`);
 
-module.exports.deleteMovie = deleteMovie
+module.exports.deleteMovie = deleteMovie;
+
 /**
  * returns all transcoded movies from db
  * @return {Promise<any>}
@@ -169,27 +175,25 @@ module.exports.findNotTranscoded = async () => {
                 return updateMovie(n)
             }
         }))
-
-
 };
+
 /**
  *  returns an array of watchdirs with videos
  * @return {Promise<[String]>}
  */
-module.exports.getWatchDirs = async () => all("select * from watchdir")
+module.exports.getWatchDirs = async () => all('select * from watchdir where "enabled" is 1;');
 
 /**
  * deletes videos from db that are marked as isTranscoding
  * @return {Promise<void>}
  */
 module.exports.removeStalledTranscodings = async () => {
-    const amnt = await all('select * from movie where "transcodedPath" ISNULL AND "isTranscoding" is 1')
-    await run('delete from movie where "transcodedPath" ISNULL AND "isTranscoding" is 1');
-    debug("removed stalled transcodings");
+    await run('update movie set "isTranscoding" = 0 where "transcodedPath" ISNULL AND "isTranscoding" is 1;')
+        .catch(debug);
 };
 
 /**
  * return the video transcoding output directory
  * @return {Promise<String>}
  */
-module.exports.getOutputDir = async () => get("select outputpath from settings")
+module.exports.getOutputDir = async () => get("select outputpath from settings");
