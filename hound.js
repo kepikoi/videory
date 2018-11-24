@@ -87,6 +87,8 @@ module.exports.findAndUpdate = async (watchDirs, searchExt) => {
         return Promise.resolve();
     }
 
+    console.time("indexing");
+
     const hound =  FileHound.create();
     hound.paths(watchDirs)
         .ext(searchExt)
@@ -94,11 +96,14 @@ module.exports.findAndUpdate = async (watchDirs, searchExt) => {
         .depth(10) //todo: extract to settings
         .find()
         .then(async files => {
+            console.timeEnd("indexing");
             debug(`found ${files.length} ${searchExt} files`);
+            console.time("hashing");
             for (let i = 0; i < files.length; i++) {
                 const movie = files[i];
                 await indexMovie(movie);
             }
+            console.timeEnd("hashing");
         });
 
     hound.on('match', (file) => {
