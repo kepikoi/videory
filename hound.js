@@ -111,8 +111,8 @@ module.exports.findAndUpdate = async (watchDirs, searchExt) => {
     });
 
     hound.on('error', e => {
-        debug(`error ${error}`);
-        throw error;
+        debug(`error ${e}`);
+        throw e;
     });
 
     hound.on('end', file => {
