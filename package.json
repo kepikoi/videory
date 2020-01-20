@@ -1,27 +1,22 @@
 {
   "name": "videory",
   "version": "0.1.0",
-  "description": "",
+  "description": "Convert all ",
   "main": "server.js",
   "dependencies": {
-    "chokidar": "^2.0.4",
+    "args": "^5.0.1",
     "dayjs": "^1.7.5",
     "debug": "^3.1.0",
-    "easy-ffmpeg": "0.0.15",
-    "express": "^4.16.3",
-    "ffmpeg": "0.0.4",
     "filehound": "^1.16.4",
+    "fluent-ffmpeg": "^2.1.2",
+    "lowdb": "^1.0.0",
     "md5": "^2.2.1",
-    "md5-file": "^4.0.0",
-    "sqlite3": "^4.0.2",
     "xxhash": "^0.2.4"
-  },
-  "devDependencies": {
-    "tape": "^4.9.1"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "node server.js",
+    "reset:db": "rimraf db.json"
   },
   "author": "kepikoi <kepi@binks.rocks>",
   "license": "ISC"

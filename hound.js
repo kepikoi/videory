@@ -5,10 +5,9 @@ const
     , assert = require("assert")
     , db = require('./db')
     , md5 = require('md5')
-    , ffmpeg = require('easy-ffmpeg')
+    , ffmpeg = require('fluent-ffmpeg')
     , {getFilesizeInMBytes} = require('./helpers')
     , debug = require("debug")('videory:hound')
-    , chokidar = require('chokidar')
     , dayjs = require("dayjs")
 ;
 
@@ -69,7 +68,7 @@ async function indexMovie(filePath) {
         , length = ffprobeMeta.format.duration
     ;
 
-    debug("video indexed", "name: " + name, "path: " + filePath, "size in MB: " + size, "hash: " + fileHash, "created: " + lastModified);
+    debug("video indexed", "name: " + name, "path: " + filePath, "size in MB: " + size, "hash: " + fileHash, "created: " + lastModified.format());
     return db.insertMovie(fileHash, name, filePath, lastModified, length)
 }
 
@@ -89,11 +88,13 @@ module.exports.findAndUpdate = async (watchDirs, searchExt) => {
 
     console.time("indexing");
 
-    const hound =  FileHound.create();
+    const hound = FileHound.create();
     hound.paths(watchDirs)
         .ext(searchExt)
-        .discard("_.*") //todo: extract to settings
+        .discard(["_.*", "#recycle","_@eadir"]) //todo: extract to settings
         .depth(10) //todo: extract to settings
+        .ignoreHiddenDirectories()
+        .ignoreHiddenFiles()
         .find()
         .then(async files => {
             console.timeEnd("indexing");
@@ -115,37 +116,9 @@ module.exports.findAndUpdate = async (watchDirs, searchExt) => {
         throw e;
     });
 
-    hound.on('end', file => {
-        debug(`search complete`,file);
+    hound.on('end', () => {
+        debug(`search complete`);
     });
 
     return hound;
 };
-
-/**
- * watch filesystem to changes
- * @param {[String]} watchDirs - fs file paths
- * @param {String} searchExt - file extension to query
- * @return {Promise<void>}
- */
-module.exports.watchDir = (watchDirs, searchExt) => new Promise((resolve, reject) => {
-    assert.equal(watchDirs.constructor, Array, "first argument must be an array of Strings with directories")
-    assert.ok(searchExt, 'missing mandatory second argument');
-    if (!watchDirs.length) {
-        return Promise.resolve();
-    }
-
-    const
-        watcher = chokidar.watch(watchDirs, {
-            ignored: /(^|[\/\\])\../,
-            persistent: true
-        })
-        , debugevent = verb => path => debug(`File ${path} has been ${verb}ed to the filesystem`)
-    ;
-
-    // watcher
-    //     .on('add', debugevent("add"))
-    //     .on('change', debugevent("change"))
-    //     .on('unlink', debugevent("remove"))
-    //     .on('error', e => reject(e))
-});

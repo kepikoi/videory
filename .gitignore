@@ -135,5 +135,5 @@ fabric.properties
 # Editor-based Rest Client
 .idea/httpRequests
 
-/transcoded/
-/db.sqlite
+# videory
+db.json

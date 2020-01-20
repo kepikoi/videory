@@ -1,15 +1,28 @@
 const
     db = require('./db')
-    , {findAndUpdate, watchDir} = require('./hound')
-    , path = require('path')
+    , {findAndUpdate} = require('./hound')
     , searchExt = 'MP4'
-    , express = require('./express')
-    , debug = require("debug")('videory:server')
     , {logAndExit} = require("./helpers")
     , transcoder = require("./transcode")
-    , {getWatchDirs, getOutputDir, removeStalledTranscodings} = require("./db")
-
+    , {removeStalledTranscodings} = require("./db")
+    , args = require("args")
 ;
+
+args
+    .option('in', 'directory transcode videos from')
+    .option('out', 'directory to transcode videos to')
+;
+
+const flags = args.parse(process.argv);
+const d_in = flags.i;
+const d_out = flags.o;
+
+if (!d_in) {
+    throw  new Error("missing 'in' flag");
+}
+if (!d_out) {
+    throw  new Error("missing 'out' flag");
+}
 
 (async function () {
     //init sqlite
@@ -19,22 +32,10 @@ const
     //remove videos that started to transcode and did not finish for some reason
     await removeStalledTranscodings();
 
-    //enable api
-    express.enable();
-
-    const
-        watchDirs = (await getWatchDirs()).map(w => w.path)
-        , outputDir = (await getOutputDir()).outputpath
-    ;
-
     //initially search fs for videos
-    await findAndUpdate(watchDirs, searchExt)
+    await findAndUpdate([d_in], searchExt)
         .catch(logAndExit(2));
 
-    // watch fs for changes
-    // watchDir(watchDirs, searchExt)
-    //     .catch(logAndExit(3));
-
     //start transcoder
-    transcoder.schedule(outputDir).next()
+    transcoder.schedule(d_out).next()
 })();

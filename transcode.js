@@ -1,6 +1,6 @@
 const
     db = require("./db")
-    , ffmpeg = require('easy-ffmpeg')
+    , ffmpeg = require('fluent-ffmpeg')
     , path = require("path")
     , fs = require("fs")
     , debug = require("debug")('videory:transcode')
@@ -30,6 +30,10 @@ async function transcode(v, transcodeDir) {
     return new Promise(async (resolve, reject) => {
 
         const videoPath = path.resolve(v.path);
+        const codec = process.env.CODEC || "hevc_nvenc";
+        const crf = process.env.CRF || 28;
+        const preset = process.env.PRESET || "medium";
+        const bitrate = process.env.BITRATE || 20e3;
 
         if (!fs.existsSync(videoPath)) {
             console.warn(videoPath + " was about to be transcoded but cannot be located on filesystem. Video entry will be deleted from the DB.");
@@ -38,36 +42,50 @@ async function transcode(v, transcodeDir) {
         }
 
         const
-             outPath = path.join(transcodeDir,"/", v.hash + "_" + v.name + ".avi")
+            outPath = path.join(transcodeDir, "/", `${v.name}.${codec}.crf${crf}.mp4`)
         ;
-        await v.setIsTrancoding();
-
-        debug("start transcoding " + v.hash + " to", outPath);
-
-        const command = ffmpeg(fs.createReadStream(videoPath))
-            .audioCodec('ac3_fixed')
-            .audioBitrate(128)
-            .videoCodec('libx264')
-            .format("mov")
+        const command = ffmpeg(fs.createReadStream(videoPath), {logger: console})
+            .audioCodec('aac')
+            .audioBitrate(192, true)
+            .videoCodec(codec)
+            .addInputOption(`-preset ${preset}`)
+            .addInputOption(`-crf ${crf}`)
+            .addInputOption(`-tag:v hvc1`) // apple friendly
+            .outputOptions("-metadata", `comment="${v.path}"`)
+            .videoBitrate(bitrate, true)
+            .format("mp4")
             .size('1920x?')
             .on('error', async err => {
                 console.error(err);
                 await Promise.all([
-                    v.setIsTrancoding(false),
-                    v.setTranscodePath(null)
+                    v.setIsTrancoding(false, null, null, null, null),
+                    v.setTranscodePath(null),
+                    v.setFailed(err),
                 ]);
                 return reject(err);
             })
             .on('end', async () => {
                 await Promise.all([
-                    await v.setIsTrancoding(false),
-                    await v.setTranscodePath(outPath)
+                    v.setIsTrancoding(false, codec, preset, crf, bitrate),
+                    v.setTranscodePath(outPath),
                 ]);
                 debug('Video file ' + videoPath + ' was transcoded to ' + outPath);
                 return resolve(v);
             })
+            .on('progress', progress => {
+                debug('Processing ', {
+                    name: v.name,
+                    path: v.path,
+                    hash: v.hash,
+                    ...progress
+                });
+            })
             .save(outPath)
         ;
+
+        await v.setIsTrancoding(true, codec);
+
+        debug("start transcoding " + v.hash + " to", outPath, "using", {codec, preset, crf},);
     })
 }
 

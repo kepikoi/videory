@@ -1,11 +1,15 @@
 # Videory
-> transcode all videos in a directory and provide a neat interface to browse them
+> transcode all videos in a directory
 
 #Environment Variables
 Variable|Description|Possible Values
 ---|---|---
-PORT|Server web interface port|`3000` `80`
+DEBUG|Enable debugging messages|`videory:*`
+DEBUG|Enable debugging messages|`videory:*`
 
+# Arguments
+- `-i`, `--in` - directory to transcode videos from
+- `-o`, `--out` - director< to transcode videos to
 
 #Errors
 |ErrNo|Description|

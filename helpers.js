@@ -1,7 +1,5 @@
 const
     fs = require("fs")
-    , assert = require("assert")
-    , debug = require("debug")("videory:helpers")
 ;
 
 /**
@@ -10,8 +8,8 @@ const
  * @return {string}
  */
 module.exports.getFilesizeInMBytes = function (filename) {
-    var stats = fs.statSync(filename);
-    var fileSizeInBytes = stats["size"];
+    const stats = fs.statSync(filename);
+    const fileSizeInBytes = stats["size"];
     return Math.round(fileSizeInBytes / 1024 / 1024 * 100) / 100 + ' MB';
 };
 
