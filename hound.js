@@ -66,10 +66,24 @@ async function indexMovie(filePath) {
         , name = path.basename(filePath, path.extname(filePath)) //without the extension
         , size = getFilesizeInMBytes(filePath)
         , length = ffprobeMeta.format.duration
+        , fps = (() => {
+            try {
+                return Math.round(eval(ffprobeMeta.streams[0]["r_frame_rate"]) * 100) / 100
+            } catch (e) {
+                console.error(`couldn't fetch fps for${name}`, e)
+            }
+        })()
+        , frames = (() => {
+            try {
+                return ffprobeMeta.streams[0]["nb_frames"]
+            } catch (e) {
+                console.error(`couldn't fetch amount of frames for${name}`, e)
+            }
+        })()
     ;
 
     debug("video indexed", "name: " + name, "path: " + filePath, "size in MB: " + size, "hash: " + fileHash, "created: " + lastModified.format());
-    return db.insertMovie(fileHash, name, filePath, lastModified, length)
+    return db.insertMovie(fileHash, name, filePath, lastModified, length, fps, frames)
 }
 
 /**
@@ -91,7 +105,7 @@ module.exports.findAndUpdate = async (watchDirs, searchExt) => {
     const hound = FileHound.create();
     hound.paths(watchDirs)
         .ext(searchExt)
-        .discard(["_.*", "#recycle","_@eadir"]) //todo: extract to settings
+        .discard(["_.*", "#recycle", "_@eadir"]) //todo: extract to settings
         .depth(10) //todo: extract to settings
         .ignoreHiddenDirectories()
         .ignoreHiddenFiles()

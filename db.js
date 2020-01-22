@@ -46,14 +46,16 @@ module.exports.updateMovie = updateVideo;
 
 /**
  * insert video to database
- * @param {String} hash - video file hash
- * @param {String} name - video name
- * @param {String} path - video fs path
+ * @param {string} hash - video file hash
+ * @param {string} name - video name
+ * @param {string} path - video fs path
  * @param {Date} created - video creation date
- * @param {String} length - video length in seconds
+ * @param {string} length - video length in seconds
+ * @param {number} fps - video fps
+ * @param {number} frames - amount of frames in video file
  * @return {Promise<any | never>}
  */
-module.exports.insertMovie = async (hash, name, path, created, length) => {
+module.exports.insertMovie = async (hash, name, path, created, length, fps, frames) => {
     const m = (await db).get("videos")
         .find({hash, path})
 
@@ -67,8 +69,10 @@ module.exports.insertMovie = async (hash, name, path, created, length) => {
                 path,
                 created,
                 length,
+                frames,
                 codec: null,
                 transcoded: null,
+                fps: fps,
                 bitrate: null,
                 failed: null,
                 indexed: dayjs(new Date()),
@@ -113,7 +117,7 @@ module.exports.findNotTranscoded = async () => {
     // const notTranscoded = await all('select * from movie where "transcodedPath" ISNULL AND "isTranscoding" is 0');
 
     const notTranscoded = await (await db).get('videos')
-        .filter(n => n.transcodedPath === null && n.isTranscoding === false && n.failed === null)
+        .filter(n => n.transcodedPath === null && n.isTranscoding === false /*&& n.failed === null*/)
         .take(4)
         .value()
     ;

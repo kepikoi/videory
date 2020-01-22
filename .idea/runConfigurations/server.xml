@@ -1,9 +1,10 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="server" type="NodeJSConfigurationType" application-parameters="-i &quot;Z:\2018-12-27 Landsbergs Loch&quot; -o Y:\Transcoded\videory" path-to-js-file="server.js" working-dir="$PROJECT_DIR$">
+  <configuration default="false" name="server" type="NodeJSConfigurationType" application-parameters="-i &quot;C:\Users\autod\Desktop\test&quot; -o &quot;Y:\Transcoded\videory_qtests&quot;" path-to-js-file="server.js" working-dir="$PROJECT_DIR$">
     <envs>
       <env name="DEBUG" value="videory:*" />
-      <env name="CODEC" value="hevc_nvenc" />
-      <env name="CRF" value="24" />
+      <env name="CODEC" value="h264" />
+      <env name="CRF" value="22" />
+      <env name="PRESET" value="medium" />
     </envs>
     <method v="2" />
   </configuration>

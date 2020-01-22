@@ -4,6 +4,7 @@ const
     , path = require("path")
     , fs = require("fs")
     , debug = require("debug")('videory:transcode')
+    , assert = require("assert")
 ;
 
 /**
@@ -31,9 +32,13 @@ async function transcode(v, transcodeDir) {
 
         const videoPath = path.resolve(v.path);
         const codec = process.env.CODEC || "hevc_nvenc";
-        const crf = process.env.CRF || 28;
-        const preset = process.env.PRESET || "medium";
-        const bitrate = process.env.BITRATE || 20e3;
+        const crf = process.env.CRF || 23;
+        const preset = process.env.PRESET || "veryfast";
+        // const bitrate = process.env.BITRATE || 10e3;
+
+        // const parsedBitrate = bitrate.match(/^(\d+)(k?)$/i);
+        // assert.ok(parsedBitrate.length, `invalid bitrate: ${bitrate}`);
+        // const factoredBitrateString = (factor = 1) => `${parseInt(parsedBitrate[1]) * factor}${parsedBitrate[2] || ""}`;
 
         if (!fs.existsSync(videoPath)) {
             console.warn(videoPath + " was about to be transcoded but cannot be located on filesystem. Video entry will be deleted from the DB.");
@@ -41,18 +46,22 @@ async function transcode(v, transcodeDir) {
             return resolve();
         }
 
-        const
-            outPath = path.join(transcodeDir, "/", `${v.name}.${codec}.crf${crf}.mp4`)
-        ;
+        const outPath = path.join(transcodeDir, "/", `${v.name}.${v.hash.substr(0, 5)}.${codec}.crf${crf}.${preset}.mp4`);
+
         const command = ffmpeg(fs.createReadStream(videoPath), {logger: console})
             .audioCodec('aac')
             .audioBitrate(192, true)
             .videoCodec(codec)
-            .addInputOption(`-preset ${preset}`)
-            .addInputOption(`-crf ${crf}`)
-            .addInputOption(`-tag:v hvc1`) // apple friendly
+            // .addInputOption(`-tag:v hvc1`) // apple friendly
+            .outputOptions(`-preset ${preset}`)
+            .outputOptions(`-crf ${crf}`)
+            .outputOptions(`-level ${crf}`)
+            .outputOptions(`-tune film`)
             .outputOptions("-metadata", `comment="${v.path}"`)
-            .videoBitrate(bitrate, true)
+            // .outputOptions("-g", Math.ceil(v.fps) * 2) // Use a 2 second GOP (Group of Pictures), so simply multiply your output frame rate * 2. For example, if your input is -framerate 30, then use -g 60.
+            // .outputOptions("-maxrate", factoredBitrateString())
+            // .outputOptions("-minrate", factoredBitrateString())
+            // .outputOptions(`-bufsize ${factoredBitrateString(2)}`)
             .format("mp4")
             .size('1920x?')
             .on('error', async err => {
@@ -66,18 +75,19 @@ async function transcode(v, transcodeDir) {
             })
             .on('end', async () => {
                 await Promise.all([
-                    v.setIsTrancoding(false, codec, preset, crf, bitrate),
+                    v.setIsTrancoding(false, codec, preset, crf, null),
                     v.setTranscodePath(outPath),
                 ]);
                 debug('Video file ' + videoPath + ' was transcoded to ' + outPath);
                 return resolve(v);
             })
-            .on('progress', progress => {
+            .on('progress', p => {
                 debug('Processing ', {
                     name: v.name,
                     path: v.path,
                     hash: v.hash,
-                    ...progress
+                    progress: `${Math.round(100 / v.frames * p.frames * 100) / 100}%`,
+                    ...p,
                 });
             })
             .save(outPath)
