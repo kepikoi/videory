@@ -5,7 +5,7 @@ const
     , fs = require("fs")
     , debug = require("debug")('videory:transcode')
     , assert = require("assert")
-;
+    , {checkFileExists} = require("./helpers");
 
 /**
  * trnascode given videos to given transcode directory
@@ -28,6 +28,8 @@ async function transcodeAll(videos, transcodeDir) {
  * @return {Promise<any>}
  */
 async function transcode(v, transcodeDir) {
+
+
     return new Promise(async (resolve, reject) => {
 
         const videoPath = path.resolve(v.path);
@@ -40,39 +42,42 @@ async function transcode(v, transcodeDir) {
         // assert.ok(parsedBitrate.length, `invalid bitrate: ${bitrate}`);
         // const factoredBitrateString = (factor = 1) => `${parseInt(parsedBitrate[1]) * factor}${parsedBitrate[2] || ""}`;
 
+        const onError = async err => {
+            console.error(err);
+            await Promise.all([
+                v.setIsTrancoding(false, null, null, null, null),
+                v.setTranscodePath(null),
+                v.setFailed(err),
+            ]);
+            return reject(err);
+        };
+
         if (!fs.existsSync(videoPath)) {
-            console.warn(videoPath + " was about to be transcoded but cannot be located on filesystem. Video entry will be deleted from the DB.");
+            console.warn(`${videoPath} was about to be transcoded but cannot be located on filesystem. Video entry will be deleted from the DB.`);
             await db.deleteMovie(v);
             return resolve();
         }
 
         const outPath = path.join(transcodeDir, "/", `${v.name}.${v.hash.substr(0, 5)}.${codec}.crf${crf}.${preset}.mp4`);
 
+        const exists = await checkFileExists(outPath);
+        if (exists) {
+            return onError(new Error(`Won't overwrite existing file under ${outPath}`))
+        }
+
         const command = ffmpeg(fs.createReadStream(videoPath), {logger: console})
             .audioCodec('aac')
             .audioBitrate(192, true)
             .videoCodec(codec)
-            // .addInputOption(`-tag:v hvc1`) // apple friendly
+            // .addInputOption(`-tag:v hvc1`) // hvec apple friendly
+            .outputOptions("-movflags +faststart")
             .outputOptions(`-preset ${preset}`)
             .outputOptions(`-crf ${crf}`)
-            .outputOptions(`-level ${crf}`)
             .outputOptions(`-tune film`)
             .outputOptions("-metadata", `comment="${v.path}"`)
-            // .outputOptions("-g", Math.ceil(v.fps) * 2) // Use a 2 second GOP (Group of Pictures), so simply multiply your output frame rate * 2. For example, if your input is -framerate 30, then use -g 60.
-            // .outputOptions("-maxrate", factoredBitrateString())
-            // .outputOptions("-minrate", factoredBitrateString())
-            // .outputOptions(`-bufsize ${factoredBitrateString(2)}`)
             .format("mp4")
             .size('1920x?')
-            .on('error', async err => {
-                console.error(err);
-                await Promise.all([
-                    v.setIsTrancoding(false, null, null, null, null),
-                    v.setTranscodePath(null),
-                    v.setFailed(err),
-                ]);
-                return reject(err);
-            })
+            .on('error', onError)
             .on('end', async () => {
                 await Promise.all([
                     v.setIsTrancoding(false, codec, preset, crf, null),
@@ -95,7 +100,7 @@ async function transcode(v, transcodeDir) {
 
         await v.setIsTrancoding(true, codec);
 
-        debug("start transcoding " + v.hash + " to", outPath, "using", {codec, preset, crf},);
+        debug(`Start transcoding ${v.path} to`, outPath, "using", {codec, preset, crf},);
     })
 }
 
@@ -108,7 +113,7 @@ function timeoutAndTranscodeAll(transcodeDir, ms) {
     setTimeout(async () => {
         const videos = await db.findNotTranscoded();
         await transcodeAll(videos, transcodeDir);
-        debug("restarting scheduler in " + ms + "ms");
+        debug(`Restarting scheduler in ${ms}ms`);
         timeoutAndTranscodeAll(transcodeDir, ms);
     }, ms);
 }

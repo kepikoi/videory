@@ -18,3 +18,22 @@ module.exports.logAndExit = exitCode => err => {
     console.trace(err);
     process.exit(exitCode);
 };
+
+/**
+ * resolves if a file exists for given path
+ * @param path
+ * @returns {Promise<unknown>}
+ */
+module.exports.checkFileExists = (path) => new Promise((resolve, reject) => {
+    fs.access(path, fs.F_OK, (err) => {
+        if (err) {
+            if (err.code === "ENOENT") {
+                return resolve(false);
+            }
+
+            return reject(err)
+        }
+
+        return resolve(true);
+    });
+});
