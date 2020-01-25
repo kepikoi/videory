@@ -11,17 +11,21 @@ const
 args
     .option('in', 'directory transcode videos from')
     .option('out', 'directory to transcode videos to')
+    .option('allow-versions', 'creates a file version if output file does already exist')
 ;
 
 const flags = args.parse(process.argv);
 const d_in = flags.i;
-const d_out = flags.o;
+const d_out = flags.o || d_in;
 
 if (!d_in) {
     throw  new Error("missing 'in' flag");
 }
 if (!d_out) {
     throw  new Error("missing 'out' flag");
+}
+if (flags.allowVersions) {
+    global.allowVersions = true
 }
 
 (async function () {

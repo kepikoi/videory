@@ -5,7 +5,10 @@ const
     , fs = require("fs")
     , debug = require("debug")('videory:transcode')
     , assert = require("assert")
-    , {checkFileExists} = require("./helpers");
+    , {checkFileExists} = require("./helpers")
+    , Utimes = require('@ronomon/utimes')
+
+;
 
 /**
  * trnascode given videos to given transcode directory
@@ -33,9 +36,9 @@ async function transcode(v, transcodeDir) {
     return new Promise(async (resolve, reject) => {
 
         const videoPath = path.resolve(v.path);
-        const codec = process.env.CODEC || "hevc_nvenc";
-        const crf = process.env.CRF || 23;
-        const preset = process.env.PRESET || "veryfast";
+        const codec = process.env.CODEC || "libx264";
+        const crf = process.env.CRF || 22;
+        const preset = process.env.PRESET || "medium";
         // const bitrate = process.env.BITRATE || 10e3;
 
         // const parsedBitrate = bitrate.match(/^(\d+)(k?)$/i);
@@ -58,12 +61,22 @@ async function transcode(v, transcodeDir) {
             return resolve();
         }
 
-        const outPath = path.join(transcodeDir, "/", `${v.name}.${v.hash.substr(0, 5)}.${codec}.crf${crf}.${preset}.mp4`);
+        const defineOutPath = async (suffix = 0) => {
+            let outPath = path.join(transcodeDir, "/", `${v.name}.${v.hash.substr(0, 5)}.${codec}.crf${crf}.${preset}${suffix ? "-" + suffix : ""}.mp4`);
 
-        const exists = await checkFileExists(outPath);
-        if (exists) {
-            return onError(new Error(`Won't overwrite existing file under ${outPath}`))
-        }
+            const exists = await checkFileExists(outPath);
+            if (exists) {
+                if (global.allowVersions) {
+                    return defineOutPath(++suffix)
+                }
+
+                return onError(new Error(`Won't overwrite existing file under ${outPath}`))
+            }
+
+            return outPath;
+        };
+
+        const outPath = await defineOutPath();
 
         const command = ffmpeg(fs.createReadStream(videoPath), {logger: console})
             .audioCodec('aac')
@@ -83,6 +96,22 @@ async function transcode(v, transcodeDir) {
                     v.setIsTrancoding(false, codec, preset, crf, null),
                     v.setTranscodePath(outPath),
                 ]);
+
+                await new Promise((resolve, reject) => {
+                    fs.stat(videoPath, (err, stats) => {
+                        if (err) {
+                            return reject(err);
+                        }
+                        try {
+                            const created = stats.ctime.getTime();
+
+                            return Utimes.utimes(outPath, created, created, undefined, resolve);
+                        } catch (e) {
+                            return reject(e)
+                        }
+                    })
+                });
+
                 debug('Video file ' + videoPath + ' was transcoded to ' + outPath);
                 return resolve(v);
             })
@@ -91,7 +120,7 @@ async function transcode(v, transcodeDir) {
                     name: v.name,
                     path: v.path,
                     hash: v.hash,
-                    progress: `${Math.round(100 / v.frames * p.frames * 100) / 100}%`,
+                    progress: `${Math.round(100 / v.frames * p.frames * 100) / 100} % `,
                     ...p,
                 });
             })
@@ -100,7 +129,7 @@ async function transcode(v, transcodeDir) {
 
         await v.setIsTrancoding(true, codec);
 
-        debug(`Start transcoding ${v.path} to`, outPath, "using", {codec, preset, crf},);
+        debug(`Start transcoding ${v.path} to ${outPath} using`, {codec, preset, crf},);
     })
 }
 
@@ -113,13 +142,13 @@ function timeoutAndTranscodeAll(transcodeDir, ms) {
     setTimeout(async () => {
         const videos = await db.findNotTranscoded();
         await transcodeAll(videos, transcodeDir);
-        debug(`Restarting scheduler in ${ms}ms`);
+        debug(` Restarting scheduler in ${ms}ms`);
         timeoutAndTranscodeAll(transcodeDir, ms);
     }, ms);
 }
 
 /**
- * query untranscoded videos from db and start transcoding. Restart when done
+ * Query not transcoded videos from db and start transcoding. Restart when done
  * @param {String} transcodeDir - directory to save transcoded videos
  */
 function* schedule(transcodeDir) {

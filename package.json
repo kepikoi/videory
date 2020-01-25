@@ -4,6 +4,7 @@
   "description": "Convert all ",
   "main": "server.js",
   "dependencies": {
+    "@ronomon/utimes": "^2.3.1",
     "args": "^5.0.1",
     "dayjs": "^1.7.5",
     "debug": "^3.1.0",
@@ -11,6 +12,7 @@
     "fluent-ffmpeg": "^2.1.2",
     "lowdb": "^1.0.0",
     "md5": "^2.2.1",
+    "rimraf": "^3.0.0",
     "xxhash": "^0.2.4"
   },
   "scripts": {

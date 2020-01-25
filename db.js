@@ -128,13 +128,13 @@ module.exports.findNotTranscoded = async () => {
         return [];
     }
 
-    debug("Found videos to transcode:", notTranscoded.map(n => n.hash).join());
+    debug("Found videos to transcode:", notTranscoded.map(n => n.path).join());
 
     const toDelete = [];
     const foundNotTranscoded = notTranscoded.filter(async n => {
         exists = await fs.existsSync(n.path);
         if (!exists) {
-            debug("db entry for video " + n.path + " not located on filesystem. Video entry will be deleted");
+            debug(`Could not locate DB entry for video ${n.path} on the filesystem. Video entry will be deleted`);
             toDelete.push(n);
         } else {
             return n;

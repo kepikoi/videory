@@ -82,7 +82,7 @@ async function indexMovie(filePath) {
         })()
     ;
 
-    debug("video indexed", "name: " + name, "path: " + filePath, "size in MB: " + size, "hash: " + fileHash, "created: " + lastModified.format());
+    debug("Video indexed", "name: " + name, "path: " + filePath, "size in MB: " + size, "hash: " + fileHash, "created: " + lastModified.format());
     return db.insertMovie(fileHash, name, filePath, lastModified, length, fps, frames)
 }
 
@@ -93,8 +93,8 @@ async function indexMovie(filePath) {
  * @return {Promise}
  */
 module.exports.findAndUpdate = async (watchDirs, searchExt) => {
-    assert.equal(watchDirs.constructor, Array, "first argument must be an array of Strings with directories");
-    assert.ok(searchExt, 'missing mandatory second argument');
+    assert.equal(watchDirs.constructor, Array, "First argument must be an array of Strings with directories");
+    assert.ok(searchExt, 'Missing mandatory second argument');
     debug('Updating index', watchDirs);
     if (!watchDirs.length) {
         return Promise.resolve();
@@ -112,7 +112,7 @@ module.exports.findAndUpdate = async (watchDirs, searchExt) => {
         .find()
         .then(async files => {
             console.timeEnd("indexing");
-            debug(`found ${files.length} ${searchExt} files`);
+            debug(`Found ${files.length} ${searchExt} files`);
             console.time("hashing");
             for (let i = 0; i < files.length; i++) {
                 const movie = files[i];
@@ -122,16 +122,16 @@ module.exports.findAndUpdate = async (watchDirs, searchExt) => {
         });
 
     hound.on('match', (file) => {
-        debug(`process ${file}`);
+        debug(`Process ${file}`);
     });
 
     hound.on('error', e => {
-        debug(`error ${e}`);
+        console.error(e);
         throw e;
     });
 
     hound.on('end', () => {
-        debug(`search complete`);
+        debug(`Search complete`);
     });
 
     return hound;
