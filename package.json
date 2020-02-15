@@ -3,6 +3,9 @@
   "version": "0.3.0",
   "description": "CLI for transcoding videos",
   "main": "index.js",
+  "bin": {
+    "videory": "./bin/videory"
+  },
   "dependencies": {
     "@ronomon/utimes": "^2.3.1",
     "args": "^5.0.1",
