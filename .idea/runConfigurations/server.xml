@@ -1,11 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="server" type="NodeJSConfigurationType" application-parameters="-i &quot;Z:\2017-09-01 Lenas erste Wochen&quot; -o &quot;\\192.168.2.10\video\Transcoded\Lenas erste wochen transcoded btime&quot; --allow-versions" path-to-js-file="server.js" working-dir="$PROJECT_DIR$">
-    <envs>
-      <env name="DEBUG" value="videory:*" />
-      <env name="CODEC" value="" />
-      <env name="CRF" value="" />
-      <env name="PRESET" value="" />
-    </envs>
+  <configuration default="false" name="server" type="NodeJSConfigurationType" application-parameters="-i &quot;C:\Users\autod\Desktop&quot; --allow-versions" path-to-js-file="index.js" working-dir="$PROJECT_DIR$">
     <method v="2" />
   </configuration>
 </component>

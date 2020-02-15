@@ -17,3 +17,7 @@ DEBUG|Enable debugging messages|`videory:*`
 |1|Coldn't initilaize database|
 |2|Failed while initial files query|
 |3|Error while watching directory|
+
+# Todo:
+- cli interface for input output https://www.npmjs.com/package/inquirer o https://www.npmjs.com/package/prompts
+- silent flag (with env requirements for input output) 

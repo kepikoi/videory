@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 const
     db = require('./db')
     , {findAndUpdate} = require('./hound')
