@@ -9,15 +9,15 @@
   "dependencies": {
     "@ronomon/utimes": "^2.3.1",
     "args": "^5.0.1",
-    "dayjs": "^1.8.19",
+    "dayjs": "^1.8.20",
     "debug": "^3.2.6",
     "dotenv": "^8.2.0",
-    "dropconvert": "^0.1.0",
-    "filehound": "^1.17.3",
+    "dropconvert": "^0.1.2",
+    "filehound": "^1.17.4",
     "fluent-ffmpeg": "^2.1.2",
     "lowdb": "^1.0.0",
     "md5": "^2.2.1",
-    "rimraf": "^3.0.0",
+    "rimraf": "^3.0.2",
     "xxhash": "^0.2.4"
   },
   "scripts": {
