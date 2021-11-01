@@ -4,12 +4,12 @@ const
     , fs = require("fs")
     , debug = require("debug")("videory:transcode")
     , { checkFileExists } = require("./helpers")
-    , Utimes = require("@ronomon/utimes")
+    , { utimes } = require("utimes")
     , ffmpg = require("dropconvert")
 ;
 
 /**
- * trnascode given videos to given transcode directory
+ * Transcode given videos to desired transcode directory
  * @param {[Object]} videos - array of video objects to transcode
  * @param {String} transcodeDir - directory to store the transcoded videos
  * @return {Promise<void>}
@@ -18,12 +18,12 @@ async function transcodeAll (videos, transcodeDir) {
     for (let i = 0; i < videos.length; i++) {
         const movie = videos[i];
         await transcode(movie, transcodeDir)
-            .catch(debug);
+            .catch(debug); // fixme: decide on error handling
     }
 }
 
 /**
- * transcode single video
+ * Transcode single video
  * @param {Object} v - video
  * @param {String} transcodeDir - directory to store the transcoded videos
  * @return {Promise<any>}
@@ -75,18 +75,25 @@ async function transcode (v, transcodeDir) {
                 v.setTranscodePath(outputPath),
             ]);
             
-            await new Promise((resolve, reject) => {
-                fs.stat(inputPath, (err, stats) => {
+            await new Promise( (resolve, reject) => {
+                fs.stat(inputPath, async (err, stats) => {
                     if (err) {
                         return reject(err);
                     }
+
                     try {
                         const created = stats.ctime.getTime();
                         
-                        return Utimes.utimes(outputPath, created, created, undefined, resolve);
+                        await utimes(outputPath, {
+                            atime: undefined,
+                            btime: created,
+                            mtime: created
+                        });
                     } catch (e) {
                         return reject(e);
                     }
+
+                    return resolve();
                 });
             });
             
@@ -113,26 +120,23 @@ async function transcode (v, transcodeDir) {
 }
 
 /**
- * timesout for given amount of time and beginns transcoding unprocessed videos from db. Restarts itself when done transcoding.
+ * Fetch next batch of not transcded videos and transcode them
  * @param {String} transcodeDir - output directory to save the transcoded videos
- * @param {Number} ms - timeout period before restarting the
  */
-function timeoutAndTranscodeAll (transcodeDir, ms) {
-    setTimeout(async () => {
+async function transcodeNext (transcodeDir) {
         const videos = await db.findNotTranscoded();
         await transcodeAll(videos, transcodeDir);
-        debug(` Restarting scheduler in ${ms}ms`);
-        timeoutAndTranscodeAll(transcodeDir, ms);
-    }, ms);
+        debug(`Finished transcoding`);
 }
 
 /**
- * Query not transcoded videos from db and start transcoding. Restart when done
+ * Schedule next transcoder iteration
  * @param {String} transcodeDir - directory to save transcoded videos
  */
-function * schedule (transcodeDir) {
-    const timeoutMs = 10000;
-    yield timeoutAndTranscodeAll(transcodeDir, timeoutMs);
+async function * schedule (transcodeDir) {
+    while(true){
+        yield await transcodeNext(transcodeDir);
+    }
 }
 
 module.exports.schedule = schedule;

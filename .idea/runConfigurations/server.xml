@@ -1,5 +1,0 @@
-<component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="server" type="NodeJSConfigurationType" application-parameters="-i &quot;X:\2017-12-29 Mandicho See Winterzauber&quot; -o &quot;Z:\2017-12-29 Mandicho See Winterzauber&quot;" path-to-js-file="index.js" working-dir="$PROJECT_DIR$">
-    <method v="2" />
-  </configuration>
-</component>

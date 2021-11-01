@@ -1,5 +1,7 @@
 const
     fs = require("fs")
+    , debug = require("debug")("videory:helpers")
+
 ;
 
 /**
@@ -37,3 +39,8 @@ module.exports.checkFileExists = (path) => new Promise((resolve, reject) => {
         return resolve(true);
     });
 });
+
+module.exports.pause = (ms=10e3) => new Promise(resolve => {
+    debug(`Waiting ${ms} ms`);
+    setTimeout(resolve,ms);
+})

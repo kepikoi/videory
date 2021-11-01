@@ -4,7 +4,7 @@ const
     db = require("./db")
     , { findAndUpdate } = require("./hound")
     , searchExt = ["MP4", "MOV"]
-    , { logAndExit } = require("./helpers")
+    , { logAndExit, pause } = require("./helpers")
     , transcoder = require("./transcode")
     , { removeStalledTranscodings } = require("./db")
     , args = require("args")
@@ -43,5 +43,8 @@ if (flags.allowVersions) {
         .catch(logAndExit(2));
     
     //start transcoder
-    transcoder.schedule(d_out).next();
+    while(true){
+        await transcoder.schedule(d_out).next();
+        await pause();
+    }
 })();

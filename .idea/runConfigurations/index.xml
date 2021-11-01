@@ -1,0 +1,8 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="index" type="NodeJSConfigurationType" application-parameters="-i &quot;/Volumes/files/temp&quot;" path-to-js-file="index.js" working-dir="$PROJECT_DIR$">
+    <envs>
+      <env name="DEBUG" value="videory:* " />
+    </envs>
+    <method v="2" />
+  </configuration>
+</component>
