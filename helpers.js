@@ -5,7 +5,7 @@ const
 ;
 
 /**
- * returns file size in MB
+ * Return file size in MB
  * @param {String} filename - file path to check size
  * @return {string}
  */
@@ -22,7 +22,7 @@ module.exports.logAndExit = exitCode => err => {
 };
 
 /**
- * resolves if a file exists for given path
+ * Resolve true if a file exists for given path
  * @param path
  * @returns {Promise<unknown>}
  */
@@ -40,6 +40,11 @@ module.exports.checkFileExists = (path) => new Promise((resolve, reject) => {
     });
 });
 
+/**
+ * Await delay
+ * @param ms
+ * @returns {Promise<unknown>}
+ */
 module.exports.pause = (ms=10e3) => new Promise(resolve => {
     debug(`Waiting ${ms} ms`);
     setTimeout(resolve,ms);

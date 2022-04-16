@@ -83,7 +83,7 @@ async function indexMovie(filePath) {
     ;
 
     debug("Video indexed", "name: " + name, "path: " + filePath, "size in MB: " + size, "hash: " + fileHash, "created: " + lastModified.format());
-    return db.insertMovie(fileHash, name, filePath, lastModified, length, fps, frames)
+    return db.insertVideo(fileHash, name, filePath, lastModified, length, fps, frames)
 }
 
 /**
@@ -93,9 +93,10 @@ async function indexMovie(filePath) {
  * @return {Promise}
  */
 module.exports.findAndUpdate = async (watchDirs, searchExt) => {
-    assert.equal(watchDirs.constructor, Array, "First argument must be an array of Strings with directories");
+    assert.ok(Array.isArray(watchDirs), "First argument must be an array of Strings with directories");
     assert.ok(searchExt, 'Missing mandatory second argument');
     debug('Updating index', watchDirs);
+
     if (!watchDirs.length) {
         return Promise.resolve();
     }

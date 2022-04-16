@@ -60,8 +60,9 @@ async function transcode (v, transcodeDir) {
                 if (global.allowVersions) {
                     return defineOutPath(++suffix);
                 }
-                
-                return onError(new Error(`Won't overwrite existing file under ${outputPath}`));
+
+                // assume video was transcoded correctly
+                return onEnd();
             }
             
             return outputPath;
@@ -98,6 +99,7 @@ async function transcode (v, transcodeDir) {
             });
             
             debug("Video file " + inputPath + " was transcoded to " + outputPath);
+
             return resolve(v);
         };
         
@@ -124,7 +126,7 @@ async function transcode (v, transcodeDir) {
  * @param {String} transcodeDir - output directory to save the transcoded videos
  */
 async function transcodeNext (transcodeDir) {
-        const videos = await db.findNotTranscoded();
+        const videos = await db.findNotTranscodedVideos();
         await transcodeAll(videos, transcodeDir);
         debug(`Finished transcoding`);
 }

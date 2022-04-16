@@ -5,7 +5,6 @@
 Variable|Description|Possible Values
 ---|---|---
 DEBUG|Enable debugging messages|`videory:*`
-DEBUG|Enable debugging messages|`videory:*`
 
 # Arguments
 - `-i`, `--in` - directory to transcode videos from

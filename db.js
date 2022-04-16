@@ -10,7 +10,7 @@ const
 ;
 
 /**
- * init database
+ * Initialize the database
  * @return {Promise<*>}
  */
 module.exports.init = async () => {
@@ -24,7 +24,7 @@ module.exports.init = async () => {
 };
 
 /**
- * update video entity
+ * Update video entity
  * @param {Object} video
  * @return {Promise<any>}
  */
@@ -39,10 +39,10 @@ async function updateVideo (video) {
         ;
 }
 
-module.exports.updateMovie = updateVideo;
+module.exports.updateVideo = updateVideo;
 
 /**
- * insert video to database
+ * Insert video to database
  * @param {string} hash - video file hash
  * @param {string} name - video name
  * @param {string} path - video fs path
@@ -52,7 +52,7 @@ module.exports.updateMovie = updateVideo;
  * @param {number} frames - amount of frames in video file
  * @return {Promise<any | never>}
  */
-module.exports.insertMovie = async (hash, name, path, created, length, fps, frames) => {
+module.exports.insertVideo = async (hash, name, path, created, length, fps, frames) => {
     const m = (await db).get("videos")
         .find({ hash, path });
     
@@ -82,8 +82,8 @@ module.exports.insertMovie = async (hash, name, path, created, length, fps, fram
 };
 
 /**
- * deletes a movie from db
- * @param {Object} movie
+ * Delete a video from db
+ * @param {Object} video
  * @return {Promise<any>}
  */
 const deleteVideo = async ({ hash, path }) => {
@@ -96,7 +96,7 @@ const deleteVideo = async ({ hash, path }) => {
 module.exports.deleteVideo = deleteVideo;
 
 /**
- * returns all transcoded movies from db
+ * Return all transcoded videos from db
  * @return {Promise<any>}
  */
 module.exports.findTranscodedVideos = async () => {
@@ -107,10 +107,10 @@ module.exports.findTranscodedVideos = async () => {
 };
 
 /**
- * returns movies that are yet to be encoded
+ * Return videos that are yet to be encoded
  * @return {Promise<*>}
  */
-module.exports.findNotTranscoded = async () => {
+module.exports.findNotTranscodedVideos = async () => {
     // const notTranscoded = await all('select * from movie where "transcodedPath" ISNULL AND "isTranscoding" is 0');
     
     const notTranscoded = await (await db).get("videos")
@@ -163,7 +163,7 @@ module.exports.findNotTranscoded = async () => {
 };
 
 /**
- * find videos from db that are marked as isTranscoding
+ * Return videos from db that are marked as isTranscoding
  * @return {Promise<void>}
  */
 
@@ -173,7 +173,7 @@ const findStalledTranscodings = async () => {
 };
 
 /**
- * find videos from db that are marked as failed
+ * Return videos from db that are marked as failed
  * @return {Promise<void>}
  */
 const findFailedTranscodings = async () => {
@@ -186,7 +186,7 @@ const findFailedTranscodings = async () => {
 };
 
 /**
- * deletes videos from db that are marked as isTranscoding
+ * Delete videos from db that are marked as isTranscoding
  * @return {Promise<void>}
  */
 module.exports.removeStalledTranscodings = async () => {
