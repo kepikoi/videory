@@ -1,15 +1,15 @@
-const
-    fs = require('fs')
-    , path = require('path')
-    , FileHound = require('filehound')
-    , assert = require("assert")
-    , db = require('./db')
-    , md5 = require('md5')
-    , ffmpeg = require('fluent-ffmpeg')
-    , {getFilesizeInMBytes} = require('./helpers')
-    , debug = require("debug")('videory:hound')
-    , dayjs = require("dayjs")
-;
+import fs from "fs"
+import path from "path"
+import FileHound from "filehound"
+import assert from "assert"
+import {insertVideo} from "./db.js"
+import md5 from "md5"
+import ffmpeg from "fluent-ffmpeg"
+import {getFilesizeInMBytes} from "./helpers.js"
+import dayjs from "dayjs";
+import log from "log";
+
+const debug = log.get('videory:hound')
 
 /**
  * reads and returns ffprobe metadata for given videofile path
@@ -18,18 +18,20 @@ const
  */
 async function probe(path) {
     assert.ok(path);
+
     return new Promise((resolve, reject) => {
         ffmpeg.ffprobe(path, (err, metadata) => {
             if (err) {
-                reject(err);
+                return reject(err);
             }
-            resolve(metadata);
+
+            return resolve(metadata);
         });
     })
 }
 
 /**
- * returns md5 hash from concatinated video and filesystem metadata
+ * Return md5 hash from concatinated video and filesystem meta data
  * @param {Object} ffprobeMeta - video metadata output from ffprobe
  * @param {Object} fsStats - filesystem metadata outpout from  fs.stat
  * @return {String} video hash estimation
@@ -50,13 +52,13 @@ function calculateHashFromMeta(ffprobeMeta, fsStats) {
 }
 
 /**
- * add movie from fs to db
+ * Add video from fs to the database
  * @param {String} filePath - fs path to movie file
  * @return {Promise}
  */
 async function indexMovie(filePath) {
     assert.ok(filePath, 'missing mandatory argument');
-    debug("calculating hash for video " + filePath);
+    debug.notice("calculating hash for video " + filePath);
     // const fileHash = await md5file(filePath);
     const
         ffprobeMeta = await probe(filePath)
@@ -70,41 +72,46 @@ async function indexMovie(filePath) {
             try {
                 return Math.round(eval(ffprobeMeta.streams[0]["r_frame_rate"]) * 100) / 100
             } catch (e) {
-                console.error(`couldn't fetch fps for${name}`, e)
+                debug.error(`couldn't fetch fps for${name}`, e)
             }
         })()
         , frames = (() => {
             try {
                 return ffprobeMeta.streams[0]["nb_frames"]
             } catch (e) {
-                console.error(`couldn't fetch amount of frames for${name}`, e)
+                debug.error(`couldn't fetch amount of frames for${name}`, e)
             }
         })()
     ;
 
-    debug("Video indexed", "name: " + name, "path: " + filePath, "size in MB: " + size, "hash: " + fileHash, "created: " + lastModified.format());
-    return db.insertVideo(fileHash, name, filePath, lastModified, length, fps, frames)
+    debug.notice("Video indexed", "name: " + name, "path: " + filePath, "size in MB: " + size, "hash: " + fileHash, "created: " + lastModified.format());
+
+    return insertVideo(fileHash, name, filePath, lastModified, length, fps, frames)
 }
 
 /**
- * find all files with matching file extension in given path
+ * Find all files matching given file extension and path
  * @param {[String]} watchDirs - fs file paths
  * @param {String} searchExt - file extension to query
  * @return {Promise}
  */
-module.exports.findAndUpdate = async (watchDirs, searchExt) => {
+export const findAndUpdate = async (watchDirs, searchExt) => {
     assert.ok(Array.isArray(watchDirs), "First argument must be an array of Strings with directories");
     assert.ok(searchExt, 'Missing mandatory second argument');
-    debug('Updating index', watchDirs);
+    debug.notice('Updating index', watchDirs);
 
     if (!watchDirs.length) {
         return Promise.resolve();
     }
 
-    console.time("indexing");
+    const hashing = "hashing", indexing = "indexing";
+
+    console.time(indexing);
 
     const hound = FileHound.create();
-    hound.paths(watchDirs)
+
+    hound
+        .paths(watchDirs)
         .ext(searchExt)
         .discard(["_.*", "#recycle", "_@eadir"]) //todo: extract to settings
         .depth(10) //todo: extract to settings
@@ -112,27 +119,31 @@ module.exports.findAndUpdate = async (watchDirs, searchExt) => {
         .ignoreHiddenFiles()
         .find()
         .then(async files => {
-            console.timeEnd("indexing");
-            debug(`Found ${files.length} ${searchExt} files`);
-            console.time("hashing");
+            console.timeEnd(indexing);
+            debug.notice(`Found ${files.length} ${searchExt} files`);
+
+            console.time(hashing);
+
             for (let i = 0; i < files.length; i++) {
                 const movie = files[i];
                 await indexMovie(movie);
             }
-            console.timeEnd("hashing");
+
+            console.timeEnd(hashing);
         });
 
     hound.on('match', (file) => {
-        debug(`Process ${file}`);
+        debug.notice(`Process ${file}`);
     });
 
     hound.on('error', e => {
-        console.error(e);
+        debug.error(e);
+
         throw e;
     });
 
     hound.on('end', () => {
-        debug(`Search complete`);
+        debug.notice(`Search complete`);
     });
 
     return hound;

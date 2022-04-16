@@ -1,14 +1,18 @@
-require("dotenv").config();
+import dotenv from "dotenv"
+import args from "args"
+import {findAndUpdate} from "./hound.js"
+import {logAndExit, pause} from "./helpers.js"
+import {schedule} from "./transcode.js"
+import {removeStalledTranscodings, init} from "./db.js"
+import logNode from"log-node";
+logNode();
 
-const
-    db = require("./db")
-    , { findAndUpdate } = require("./hound")
-    , searchExt = ["MP4", "MOV"]
-    , { logAndExit, pause } = require("./helpers")
-    , transcoder = require("./transcode")
-    , { removeStalledTranscodings } = require("./db")
-    , args = require("args")
-;
+import PrettyError from "pretty-error"
+const pe = new PrettyError()
+
+const searchExt = ["MP4", "MOV"]
+
+dotenv.config();
 
 args
     .option("in", "directory transcode videos from")
@@ -21,10 +25,10 @@ const d_in = flags.i;
 const d_out = flags.o || d_in;
 
 if (!d_in) {
-    throw  new Error("missing 'in' flag");
+    throw pe.render(new Error("missing 'in' flag"));
 }
 if (!d_out) {
-    throw  new Error("missing 'out' flag");
+    throw pe.render(new Error("missing 'out' flag"));
 }
 if (flags.allowVersions) {
     global.allowVersions = true;
@@ -32,19 +36,19 @@ if (flags.allowVersions) {
 
 (async function () {
     //init sqlite
-    await db.init()
+    await init()
         .catch(logAndExit(1));
-    
+
     //remove videos that started to transcode and did not finish for some reason
     await removeStalledTranscodings();
-    
+
     //initially search fs for videos
     await findAndUpdate([d_in], searchExt)
         .catch(logAndExit(2));
-    
+
     //start transcoder
-    while(true){
-        await transcoder.schedule(d_out).next();
+    while (true) {
+        await schedule(d_out).next();
         await pause();
     }
 })();

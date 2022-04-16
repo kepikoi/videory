@@ -1,22 +1,25 @@
-const
-    fs = require("fs")
-    , debug = require("debug")("videory:helpers")
+import fs from "fs"
+import log from "log";
 
-;
+const debug = log.get("videory:helpers")
 
 /**
  * Return file size in MB
  * @param {String} filename - file path to check size
  * @return {string}
  */
-module.exports.getFilesizeInMBytes = function (filename) {
+export function getFilesizeInMBytes(filename) {
     const stats = fs.statSync(filename);
     const fileSizeInBytes = stats["size"];
     return Math.round(fileSizeInBytes / 1024 / 1024 * 100) / 100 + ' MB';
-};
+}
 
-
-module.exports.logAndExit = exitCode => err => {
+/**
+ * Trace given error and exit the process
+ * @param exitCode
+ * @returns {(function(*=): void)|*}
+ */
+export const logAndExit = exitCode => err => {
     console.trace(err);
     process.exit(exitCode);
 };
@@ -26,7 +29,7 @@ module.exports.logAndExit = exitCode => err => {
  * @param path
  * @returns {Promise<unknown>}
  */
-module.exports.checkFileExists = (path) => new Promise((resolve, reject) => {
+export const checkFileExists = (path) => new Promise((resolve, reject) => {
     fs.access(path, fs.F_OK, (err) => {
         if (err) {
             if (err.code === "ENOENT") {
@@ -45,7 +48,7 @@ module.exports.checkFileExists = (path) => new Promise((resolve, reject) => {
  * @param ms
  * @returns {Promise<unknown>}
  */
-module.exports.pause = (ms=10e3) => new Promise(resolve => {
-    debug(`Waiting ${ms} ms`);
+export const pause = (ms=10e3) => new Promise(resolve => {
+    debug.notice(`Waiting ${ms} ms`);
     setTimeout(resolve,ms);
 })

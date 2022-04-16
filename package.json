@@ -4,20 +4,23 @@
   "description": "CLI for transcoding videos",
   "main": "index.js",
   "bin": {
-    "videory": "./bin/videory"
+    "videory": "./bin/videory.js"
   },
+  "type": "module",
   "dependencies": {
-    "utimes": "^4.1.1",
     "args": "^5.0.1",
-    "dayjs": "^1.8.20",
-    "debug": "^3.2.6",
-    "dotenv": "^8.2.0",
+    "dayjs": "^1.11.1",
+    "dotenv": "^16.0.0",
     "dropconvert": "^0.1.2",
     "filehound": "^1.17.4",
     "fluent-ffmpeg": "^2.1.2",
-    "lowdb": "^1.0.0",
+    "log": "^6.3.1",
+    "log-node": "^8.0.3",
+    "lowdb": "^3.0.0",
     "md5": "^2.2.1",
+    "pretty-error": "^4.0.0",
     "rimraf": "^3.0.2",
+    "utimes": "^5.1.1",
     "xxhash": "^0.3.0"
   },
   "scripts": {

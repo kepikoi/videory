@@ -1,27 +1,59 @@
-const
-    debug = require("debug")("videory:db")
-    , assert = require("assert")
-    , low = require("lowdb")
-    , FileAsync = require("lowdb/adapters/FileAsync")
-    , adapter = new FileAsync("db.json")
-    , db = low(adapter)
-    , fs = require("fs")
-    , dayjs = require("dayjs")
-;
+import {JSONFile, Low} from "lowdb"
+import log from 'log';
+import assert from "assert"
+import fs from "fs"
+import {fileURLToPath} from 'url'
+import dayjs from "dayjs";
+import {dirname, join} from 'path'
+
+const debug = log.get("videory:db")
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const file = join(__dirname, 'videory.db.json')
+
+const adapter = new JSONFile(file)
+const db = new Low(adapter);
 
 /**
  * Initialize the database
  * @return {Promise<*>}
  */
-module.exports.init = async () => {
+export const init = async () => {
     // init movies table
-    
-    return (await db).defaults({ videos: [] })
-        .write();
-    
+    await db.read()
+
+    db.data ||= {videos: []};
+
+    await db.write()
+
     //todo: remove transcoding Bit on every video after startup
     //init settings tables
 };
+
+/**
+ * Return video matching given hash and fs path
+ * @param hash
+ * @param path
+ * @returns {*[]}
+ */
+async function findVideoByHash({hash, path}) {
+    const {videos} = await getVideos();
+
+    return videos.find(vid => vid.hash === hash && vid.path === path)
+}
+
+/**
+ * Return the videos array from database
+ * @returns {Promise<{videos: [], findByHash({hash: *, path: *}): *}|*[]>}
+ */
+const getVideos = async () => {
+    await db.read();
+
+    return {
+        videos: db.data.videos
+    };
+}
+
 
 /**
  * Update video entity
@@ -29,17 +61,14 @@ module.exports.init = async () => {
  * @return {Promise<any>}
  */
 
-async function updateVideo (video) {
+export async function updateVideo(video) {
     assert.ok(video.hash);
-    
-    return (await db).get("videos")
-        .find({ hash: video.hash, path: video.path })
-        .assign(video)
-        .write()
-        ;
-}
 
-module.exports.updateVideo = updateVideo;
+    const  i = db.data.videos.findIndex(v => v.hash === video.hash && v.path === video.path)
+    db.data.videos[i] = video
+
+    return db.write();
+}
 
 /**
  * Insert video to database
@@ -52,55 +81,60 @@ module.exports.updateVideo = updateVideo;
  * @param {number} frames - amount of frames in video file
  * @return {Promise<any | never>}
  */
-module.exports.insertVideo = async (hash, name, path, created, length, fps, frames) => {
-    const m = (await db).get("videos")
-        .find({ hash, path });
-    
-    if (m.value()) {
-        // existing
-    } else {
-        return (await db).get("videos")
-            .push({
-                hash,
-                name,
-                path,
-                created,
-                length,
-                frames,
-                codec: null,
-                transcoded: null,
-                fps: fps,
-                bitrate: null,
-                failed: null,
-                indexed: dayjs(new Date()),
-                isTranscoding: false,
-                transcodedPath: null,
-            })
-            .write()
-            ;
+export const insertVideo = async (hash, name, path, created, length, fps, frames) => {
+    const {videos} = await getVideos();
+
+    const m = findVideoByHash({hash, path})
+
+    if (m) {
+        debug.info(`video hash ${hash} already exists in path ${path}`);
+
+        return;
     }
+
+    // video does not exist
+    videos.push({
+        hash,
+        name,
+        path,
+        created,
+        length,
+        frames,
+        codec: null,
+        transcoded: null,
+        fps: fps,
+        bitrate: null,
+        failed: null,
+        indexed: dayjs(new Date()),
+        isTranscoding: false,
+        transcodedPath: null,
+    })
+
+    return db.write();
 };
+
 
 /**
  * Delete a video from db
  * @param {Object} video
  * @return {Promise<any>}
  */
-const deleteVideo = async ({ hash, path }) => {
-    return (await db).get("videos")
-        .remove({ hash, path })
-        .write()
-        ;
+export const deleteVideo = async ({hash, path}) => {
+    let {videos} = await getVideos();
+
+    videos = videos.filter(vid => vid.hash !== hash && vid.path !== path) // remove matching element from array
+
+    return db.write();
 };
 
-module.exports.deleteVideo = deleteVideo;
-
 /**
- * Return all transcoded videos from db
+ * Return  transcoded videos
  * @return {Promise<any>}
  */
-module.exports.findTranscodedVideos = async () => {
-    return (await db).get("videos")
+export const findTranscodedVideos = async () => {
+    const v = await getVideos();
+
+    return v
         .filter(v => v.transcodedPath != null)
         .value()
         ;
@@ -110,57 +144,61 @@ module.exports.findTranscodedVideos = async () => {
  * Return videos that are yet to be encoded
  * @return {Promise<*>}
  */
-module.exports.findNotTranscodedVideos = async () => {
-    // const notTranscoded = await all('select * from movie where "transcodedPath" ISNULL AND "isTranscoding" is 0');
-    
-    const notTranscoded = await (await db).get("videos")
+export const findNotTranscodedVideos = async () => {
+    const {videos} = await getVideos();
+
+    const notTranscoded = videos
         .filter(n => n.transcodedPath === null && n.isTranscoding === false /*&& n.failed === null*/)
-        .take(4)
-        .value()
+        .slice(0, 4)
     ;
-    
+
     if (!notTranscoded.length) {
-        debug("Found no videos to transcode. Will retry shortly");
+        debug.notice("Found no videos to transcode. Will retry shortly");
         const failed = await findFailedTranscodings();
         if (failed.length) {
-            debug(`Found ${failed.length} failed transcodings: `, failed);
+            debug.notice(`Found ${failed.length} failed transcodings: `, failed);
         }
         return [];
     }
-    
-    debug("Found videos to transcode:", notTranscoded.map(n => n.path).join());
-    
+
+    debug.notice("Found videos to transcode:", notTranscoded.map(n => n.path).join());
+
     const toDelete = [];
     const foundNotTranscoded = notTranscoded.filter(async n => {
-        exists = await fs.existsSync(n.path);
-        if (!exists) {
-            debug(`Could not locate DB entry for video ${n.path} on the filesystem. Video entry will be deleted`);
-            toDelete.push(n);
-        } else {
+        const exists = await fs.existsSync(n.path);
+
+        if (exists) {
             return n;
         }
+
+        debug.notice(`Could not locate DB entry for video ${n.path} on the filesystem. Video entry will be deleted`);
+        toDelete.push(n);
     });
-    
+
     await Promise.all(toDelete.map(d => deleteVideo(d)));
-    
+
     return foundNotTranscoded
         .map(n => ({
             ...n,
-            async setTranscodePath (path) {
+            async setTranscodePath(path) {
                 n.transcodedPath = path;
                 n.transcoded = path ? dayjs(new Date()) : null;
+
                 return updateVideo(n);
             },
-            async setFailed (error) {
+            async setFailed(error) {
                 n.failed = error.message;
+
                 return updateVideo(n);
             },
-            async setIsTrancoding (isTranscoding = true, codec, preset, crf, bitrate) {
-                n = { ...n, codec, preset, crf, bitrate };
+            async setIsTrancoding(isTranscoding = true, codec, preset, crf, bitrate) {
+                n = {...n, codec, preset, crf, bitrate};
+
                 return updateVideo(n);
             }
         }));
 };
+
 
 /**
  * Return videos from db that are marked as isTranscoding
@@ -168,8 +206,9 @@ module.exports.findNotTranscodedVideos = async () => {
  */
 
 const findStalledTranscodings = async () => {
-    return (await db).get("videos")
-        .filter({ transcodedPath: null, isTranscoding: true });
+    const {videos} = await getVideos();
+
+    return videos.filter(vid => vid.transcodedPath === null && vid.isTranscoding === true);
 };
 
 /**
@@ -177,25 +216,21 @@ const findStalledTranscodings = async () => {
  * @return {Promise<void>}
  */
 const findFailedTranscodings = async () => {
-    const r = (await db).get("videos")
-        .filter(v => {
-            return v.failed === false;
-        });
-    
-    return r.value();
+    const {videos} = await getVideos();
+
+    return videos.filter(v => v.failed === false);
 };
 
 /**
  * Delete videos from db that are marked as isTranscoding
  * @return {Promise<void>}
  */
-module.exports.removeStalledTranscodings = async () => {
-    return (await findStalledTranscodings())
-        .each((v) => {
-            v.isTranscoding = false;
-        })
-        .write()
-        ;
-};
+export const removeStalledTranscodings = async () => {
+    const videos = await findStalledTranscodings();
 
-module.exports.findStalledTranscodings = findStalledTranscodings;
+    videos.map((v) => {
+        v.isTranscoding = false;
+    })
+
+    return db.write();
+};
