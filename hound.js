@@ -113,7 +113,7 @@ export const findAndUpdate = async (watchDirs, searchExt) => {
     hound
         .paths(watchDirs)
         .ext(searchExt)
-        .discard(["_.*", "#recycle", "_@eadir"]) //todo: extract to settings
+        .discard(["#recycle", "_@eadir"]) //todo: extract to settings
         .depth(10) //todo: extract to settings
         .ignoreHiddenDirectories()
         .ignoreHiddenFiles()
