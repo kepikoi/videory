@@ -82,9 +82,7 @@ export async function updateVideo(video) {
  * @return {Promise<any | never>}
  */
 export const insertVideo = async (hash, name, path, created, length, fps, frames) => {
-    const {videos} = await getVideos();
-
-    const m = findVideoByHash({hash, path})
+    const m = await findVideoByHash({hash, path})
 
     if (m) {
         debug.info(`video hash ${hash} already exists in path ${path}`);
@@ -93,7 +91,7 @@ export const insertVideo = async (hash, name, path, created, length, fps, frames
     }
 
     // video does not exist
-    videos.push({
+    db.data.videos.push({
         hash,
         name,
         path,
@@ -108,7 +106,9 @@ export const insertVideo = async (hash, name, path, created, length, fps, frames
         indexed: dayjs(new Date()),
         isTranscoding: false,
         transcodedPath: null,
-    })
+    });
+
+    debug.info(`video hash ${hash} with path ${path} added to database`);
 
     return db.write();
 };
