@@ -1,6 +1,6 @@
 {
   "name": "videory",
-  "version": "0.4.0-pre.0",
+  "version": "0.4.0-pre.1",
   "description": "CLI for transcoding videos",
   "main": "index.js",
   "bin": {
